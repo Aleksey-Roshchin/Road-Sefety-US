@@ -1,6 +1,6 @@
 import os, time, shutil
 from pathlib import Path
-from src.constants import MENUS_PATH, USER_INPUT_FORM
+from src.constants import MENUS_PATH, USER_INPUT_FORM, MAIN_MENU, MAIN_MENU_LOGO
 
 # Consts
 
@@ -48,4 +48,4 @@ def print_menu(filepath):
 
 def main_menu():
     # clear()
-    print_menu(MENUS_PATH + '/main.txt')
+    print_menu(MAIN_MENU)
