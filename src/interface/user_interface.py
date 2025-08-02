@@ -23,7 +23,7 @@ def print_logo_centered(filepath):
             print_centered(row)
             time.sleep(0.1)
             print()
-        time.sleep(2)
+        time.sleep(1)
 
 def print_menu(filepath):
     print_logo(filepath.rstrip('.txt') + '_logo.txt')
@@ -37,4 +37,3 @@ def print_menu(filepath):
 def main_menu():
     clear()
     print_menu(MENUS + 'main.txt')
-    
