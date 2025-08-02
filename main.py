@@ -5,8 +5,9 @@ import interface.user_interface as ui
 from datetime import datetime
 
 def main():
-    ui.print_logo_centered()
-    # ui.main_menu()
+    ui.clear()
+    ui.print_logo_centered('interface/menus/program_logo.txt')
+    ui.main_menu()
     # General logic
     # Other functi
     # data = load_data()

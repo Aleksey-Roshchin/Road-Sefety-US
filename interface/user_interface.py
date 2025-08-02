@@ -11,7 +11,7 @@ def clear():
 def print_centered(text):
     width = shutil.get_terminal_size().columns
     padding = (width - len(text)) // 2
-    print(" " * max(padding, 0) + text)
+    print(" " * max(padding, 0) + text, end='')
 
 def print_logo(filepath):
     with open(filepath, 'r') as f:
@@ -19,8 +19,11 @@ def print_logo(filepath):
 
 def print_logo_centered(filepath):
     with open(filepath, 'r') as f:
-        text = f.read()
-    print_centered(text)
+        for row in f.read().splitlines():
+            print_centered(row)
+            time.sleep(0.1)
+            print()
+        time.sleep(2)
 
 def print_menu(filepath):
     print_logo(filepath.rstrip('.txt') + '_logo.txt')
@@ -33,4 +36,5 @@ def print_menu(filepath):
 
 def main_menu():
     clear()
-    print_logo(MENUS + 'main.txt')
+    print_menu(MENUS + 'main.txt')
+    
