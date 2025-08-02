@@ -9,6 +9,3 @@ PROGRAM_LOGO = MENUS_PATH + r"/program_logo.txt"
 
 
 USER_INPUT_FORM = "\n\n>>> "
-
-
-print(MENUS_PATH)
