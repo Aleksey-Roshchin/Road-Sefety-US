@@ -1,4 +1,4 @@
-Choose one of the following options:
+Available options:
 
 1. Factors
 2. Areas
