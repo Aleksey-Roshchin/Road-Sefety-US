@@ -1,5 +1,5 @@
 Available options:
 
-1. Factors
-2. Areas
-3. Conclusions
+1. Preset reports
+2. Custom reports
+3. About the program

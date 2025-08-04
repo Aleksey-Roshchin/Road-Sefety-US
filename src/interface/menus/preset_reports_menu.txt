@@ -1,0 +1,5 @@
+Available options:
+
+1. Counter accidents by city
+
+Other options will be added later
