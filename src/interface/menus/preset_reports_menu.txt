@@ -1,5 +1,11 @@
 Available options:
 
+Areas
 1. Counter accidents by city
+2. Later
+
+Years
+3. Later
+4. Later
 
 Other options will be added later
