@@ -2,6 +2,7 @@ import pandas as pd
 import os, time, shutil
 from pathlib import Path
 from src.constants import SRC_PATH, USER_INPUT_FORM, EXIT_COMMANDS
+import src.visualization as visualization
 import src.analysis as analysis
 
 # Consts
@@ -67,11 +68,19 @@ def print_menu(filepath):
     with open(filepath, 'r') as f:
         print(f.read())
 
+def ask_for_visualize(df):
+    user_input = checked_input('\nDo you want to plot this table?\n\n1. Yes\2. No').lower()
+    while user_input not in ("1", "y", "yes", '2', 'no', 'n'):
+        print(f'\nYou entered {user_input} which is not an option! Please re-enter')
+        time.sleep(1)
+        user_input = checked_input('\nDo you want to plot this table?\n\n1. Yes\2. No').lower()
+    match user_input:
+        case "1" | "y" | "yes":
+            x_col, y_col = df.columns
+            visualization.bar_plot(df, x_col, y_col)
+        case '2' | 'no' | 'n':
+            pass
 
-
-
-def ask_for_visualize():
-    user_input = 1
 
 
 # Menus
@@ -101,7 +110,9 @@ def preset_reports_menu(df: pd.DataFrame):
     exit_program(user_input)
     match user_input:
         case "1":
-            print(analysis.cities_count(df))
+            df_count_by_cities = analysis.count_by_cities(df)
+            print(df_count_by_cities)
+            ask_for_visualize(df_count_by_cities)
             press_to_continue()
         case "2":
             pass
