@@ -1,3 +1,4 @@
+import pandas as pd
 import os, time, shutil
 from pathlib import Path
 from src.constants import SRC_PATH, USER_INPUT_FORM, EXIT_COMMANDS
@@ -18,13 +19,21 @@ def clear():
 def press_to_continue():
     input('\nPress Enter to continue')
 
-def exit_program(user_input):
+def exit_program(user_input: str) -> None:
     if user_input.strip().lower() in EXIT_COMMANDS:
         print("\nExiting program...\n")
         time.sleep(1)
         exit()
 
-def print_centered(text):
+def checked_input(message=''):
+    if message:
+        print(message)
+    user_input = input(USER_INPUT_FORM)
+    exit_program(user_input)
+    return user_input
+
+
+def print_centered(text: str) -> None:
     width = shutil.get_terminal_size().columns
     padding = (width - len(text)) // 2
     print(" " * max(padding, 0) + text, end='')
@@ -59,14 +68,17 @@ def print_menu(filepath):
         print(f.read())
 
 
-        
+
+
+def ask_for_visualize():
+    user_input = 1
 
 
 # Menus
 
 def main_menu(df):
     print_menu(MAIN_MENU)
-    user_input = input(f'\nChoose the available one:{USER_INPUT_FORM}')
+    user_input = checked_input('\nChoose the available one:')
     exit_program(user_input)
     match user_input:
         case "1":
@@ -83,9 +95,9 @@ def main_menu(df):
             main_menu()
     
 
-def preset_reports_menu(df):
+def preset_reports_menu(df: pd.DataFrame):
     print_menu(PRESET_REPORTS_MENU)
-    user_input = input(f'\nChoose the available one:{USER_INPUT_FORM}')
+    user_input = checked_input('\nChoose the available one:')
     exit_program(user_input)
     match user_input:
         case "1":

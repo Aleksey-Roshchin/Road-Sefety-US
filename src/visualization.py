@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import seaborn as sns
 import pandas as pd
 
 def plot_corr(corr: pd.DataFrame):
@@ -8,4 +9,10 @@ def plot_corr(corr: pd.DataFrame):
     plt.yticks(range(len(corr)), corr.index, fontsize=6)
     plt.colorbar()
     plt.tight_layout()
+    plt.show()
+
+
+def bar_plot(df: pd.DataFrame, x_col, y_col):
+    plt.figure(figsize=(12, 9))
+    sns.barplot(data=df, x=x_col, y=y_col)
     plt.show()
