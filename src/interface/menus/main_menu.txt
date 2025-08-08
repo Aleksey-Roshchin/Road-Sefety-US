@@ -1,0 +1,5 @@
+Available options:
+
+1. Preset reports
+2. Custom reports
+3. About the program

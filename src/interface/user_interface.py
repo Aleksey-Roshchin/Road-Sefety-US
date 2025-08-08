@@ -1,23 +1,59 @@
+import pandas as pd
 import os, time, shutil
+from pathlib import Path
+from src.constants import SRC_PATH, USER_INPUT_FORM, EXIT_COMMANDS
+import src.visualization as visualization
+import src.analysis as analysis
 
 # Consts
-MENUS = 'interface/menus/'
-USER_INPUT_FORM = "\n\n>>> "
+MENUS_PATH = SRC_PATH + r'/interface/menus'
+PROGRAM_LOGO = MENUS_PATH + r"/program_logo.txt"
+MAIN_MENU = MENUS_PATH + r'/main_menu.txt'
+MAIN_MENU_LOGO = MAIN_MENU.rstrip('.txt') + '_logo.txt'
+PRESET_REPORTS_MENU = MENUS_PATH + r'/preset_reports_menu.txt'
+PRESET_REPORTS_LOGO = PRESET_REPORTS_MENU.rstrip('.txt') + '_logo.txt'
 
 # Utils
 def clear():
     os.system('clear')
 
-def print_centered(text):
+def press_to_continue():
+    input('\nPress Enter to continue')
+
+def exit_program(user_input: str) -> None:
+    if user_input.strip().lower() in EXIT_COMMANDS:
+        print("\nExiting program...\n")
+        time.sleep(1)
+        exit()
+
+def checked_input(message=''):
+    if message:
+        print(message)
+    user_input = input(USER_INPUT_FORM)
+    exit_program(user_input)
+    return user_input
+
+
+def print_centered(text: str) -> None:
     width = shutil.get_terminal_size().columns
     padding = (width - len(text)) // 2
     print(" " * max(padding, 0) + text, end='')
 
+def filepath_ckeck(filepath):
+    try:
+        with open(filepath) as f:
+            return None
+    except FileNotFoundError:
+        print(f'File {filepath} not found.\nPlease check the file name.')
+        exit()
+
 def print_logo(filepath):
+    filepath_ckeck(filepath)
     with open(filepath, 'r') as f:
         print(f.read())
 
 def print_logo_centered(filepath):
+    filepath_ckeck(filepath)
     with open(filepath, 'r') as f:
         for row in f.read().splitlines():
             print_centered(row)
@@ -26,14 +62,73 @@ def print_logo_centered(filepath):
         time.sleep(1)
 
 def print_menu(filepath):
+    filepath_ckeck(filepath)
+    clear()
     print_logo(filepath.rstrip('.txt') + '_logo.txt')
     with open(filepath, 'r') as f:
         print(f.read())
+
+def ask_for_visualize(df):
+    user_input = checked_input('\nDo you want to plot this table?\n\n1. Yes\2. No').lower()
+    while user_input not in ("1", "y", "yes", '2', 'no', 'n'):
+        print(f'\nYou entered {user_input} which is not an option! Please re-enter')
+        time.sleep(1)
+        user_input = checked_input('\nDo you want to plot this table?\n\n1. Yes\2. No').lower()
+    match user_input:
+        case "1" | "y" | "yes":
+            x_col, y_col = df.columns
+            visualization.bar_plot(df, x_col, y_col)
+        case '2' | 'no' | 'n':
+            pass
 
 
 
 # Menus
 
-def main_menu():
-    clear()
-    print_menu(MENUS + 'main.txt')
+def main_menu(df):
+    print_menu(MAIN_MENU)
+    user_input = checked_input('\nChoose the available one:')
+    exit_program(user_input)
+    match user_input:
+        case "1":
+            preset_reports_menu(df)
+        case "2":
+            pass
+        case "3":
+            pass
+        case "4":
+            pass
+        case _:
+            print('\nNot an option!')
+            time.sleep(1)
+            main_menu()
+    
+
+def preset_reports_menu(df: pd.DataFrame):
+    print_menu(PRESET_REPORTS_MENU)
+    user_input = checked_input('\nChoose the available one:')
+    exit_program(user_input)
+    match user_input:
+        case "1":
+            df_count_by_cities = analysis.count_by_cities(df)
+            print(df_count_by_cities)
+            ask_for_visualize(df_count_by_cities)
+            press_to_continue()
+        case "2":
+            pass
+        case "3":
+            pass
+        case "4":
+            pass
+        case _:
+            print('\nNot an option!')
+            time.sleep(1)
+            main_menu()
+
+
+def custom_reports_menu():
+    pass
+
+
+def help():
+    pass

@@ -1,5 +1,0 @@
-Choose one of the following options:
-
-1. Factors
-2. Areas
-3. Conclusions
