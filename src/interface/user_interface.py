@@ -26,7 +26,7 @@ def exit_program(user_input: str) -> None:
         time.sleep(1)
         exit()
 
-def checked_input(message=''):
+def checked_input(message='') -> str:
     if message:
         print(message)
     user_input = input(USER_INPUT_FORM)
@@ -59,7 +59,7 @@ def print_logo_centered(filepath):
             print_centered(row)
             time.sleep(0.1)
             print()
-        time.sleep(1)
+        time.sleep(0.2)
 
 def print_menu(filepath):
     filepath_ckeck(filepath)
@@ -68,7 +68,7 @@ def print_menu(filepath):
     with open(filepath, 'r') as f:
         print(f.read())
 
-def ask_for_visualize(df):
+def ask_for_visualize(df, plot_title=None) -> None:
     user_input = checked_input('\nDo you want to plot this table?\n\n1. Yes\2. No').lower()
     while user_input not in ("1", "y", "yes", '2', 'no', 'n'):
         print(f'\nYou entered {user_input} which is not an option! Please re-enter')
@@ -77,9 +77,18 @@ def ask_for_visualize(df):
     match user_input:
         case "1" | "y" | "yes":
             x_col, y_col = df.columns
-            visualization.bar_plot(df, x_col, y_col)
+            visualization.bar_plot(df, x_col, y_col, plot_title=plot_title)
         case '2' | 'no' | 'n':
             pass
+
+
+def check_year(year: str) -> pd.Timestamp:
+    valid_years = [str(y) for y in range(2016, 2024)]
+    min_year = min(valid_years)
+    max_year = max(valid_years)
+    while year not in valid_years:
+        year = checked_input(f'Not an option! Please, choose the year from {min_year} to {max_year}')
+    return pd.to_datetime(year).year
 
 
 
@@ -112,10 +121,15 @@ def preset_reports_menu(df: pd.DataFrame):
         case "1":
             df_count_by_cities = analysis.count_by_cities(df)
             print(df_count_by_cities)
-            ask_for_visualize(df_count_by_cities)
+            ask_for_visualize(df_count_by_cities, plot_title='Top accidents by city for 2016 - 2023')
             press_to_continue()
         case "2":
-            pass
+            user_year = checked_input('\nEnter the year')
+            user_year = check_year(user_year)
+            df_count_by_cities = analysis.count_by_cities_years(df, year=user_year)
+            print(df_count_by_cities)
+            ask_for_visualize(df_count_by_cities, plot_title=f'Top accidets by city for {user_year} year')
+            press_to_continue()
         case "3":
             pass
         case "4":

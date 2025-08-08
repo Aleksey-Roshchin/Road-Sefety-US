@@ -14,7 +14,11 @@ def plot_corr(corr: pd.DataFrame) -> None:
     plt.show()
 
 
-def bar_plot(df: pd.DataFrame, x_col: str, y_col: str, filename: str = 'temp/barplot.png') -> None:
+def bar_plot(df: pd.DataFrame, x_col: str, y_col: str, plot_title = None, filename: str = 'temp/barplot.png') -> None:
     plt.figure(figsize=(12, 9))
+    plt.title(plot_title)
     sns.barplot(data=df, x=x_col, y=y_col)
     plt.show()
+
+
+# def line_plot()

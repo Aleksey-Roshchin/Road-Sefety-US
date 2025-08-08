@@ -1,2 +1,7 @@
 data/raw/US_Accidents_March23.csv
 /data/raw/US_Accidents_March23.csv
+src/__pycache__/
+src/__pycache__/analysis.cpython-312.pyc
+src/__pycache__/constants.cpython-312.pyc
+src/__pycache__/data_loader.cpython-312.pyc
+src/__pycache__/visualization.cpython-312.pyc
