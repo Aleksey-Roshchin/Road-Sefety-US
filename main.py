@@ -1,34 +1,35 @@
-import src.interface.menus.user_interface as ui
+import src.interface.user_interface as ui
+import os, sys
 from src.constants     import *
 from src.data_loader   import *
 from src.analysis      import *
 from src.visualization import *
-
 import pandas as pd
+# df_original = pd.read_csv('data/processed/first_1000_rows.csv')
 
 
-def main() -> None:
+try:
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
+except Exception:
+    pass
+if os.name == 'nt':
+    os.system('chcp 65001 > nul')
 
-    # ui.clear()
-    # ui.print_logo_centered("interface/menus/program_logo.txt")
-    # ui.main_menu()
+def load_first_1000() -> pd.DataFrame:
+    df = pd.read_csv(CSV, nrows = 10000)
+    df = feat(df)
+    return df
 
-    df = feat(ld(CSV))
 
-    for c in ["wkd", "tod", "wnd", "frz", "road", "prec"]:
-        show(df, c)
+def main(df):
+    ui.enable_utf8()
+    ui.clear()
+    ui.print_logo_centered(ui.PROGRAM_LOGO)
+    ui.main_menu(df)
 
-    num = ["Severity", "sev", "ngt", "rush", "prec", "bad", "vlow",
-           "wkd", "frz", "bump", "cross"]
-
-    X = pd.get_dummies(df[["road", "wnd", "tod"]], drop_first=True)
-
-    data = pd.concat([df[num], X], axis=1) \
-        .astype("float32", copy=False)
-
-    corr = data.corr()
-    plot_corr(corr)
 
 
 if __name__ == "__main__":
-    main()
+    df = load_first_1000()
+    main(df)

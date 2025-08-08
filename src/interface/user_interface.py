@@ -4,6 +4,7 @@ from pathlib import Path
 from src.constants import SRC_PATH, USER_INPUT_FORM, EXIT_COMMANDS
 import src.visualization as visualization
 import src.analysis as analysis
+import sys
 
 # Consts
 MENUS_PATH = SRC_PATH + r'/interface/menus'
@@ -13,18 +14,30 @@ MAIN_MENU_LOGO = MAIN_MENU.rstrip('.txt') + '_logo.txt'
 PRESET_REPORTS_MENU = MENUS_PATH + r'/preset_reports_menu.txt'
 PRESET_REPORTS_LOGO = PRESET_REPORTS_MENU.rstrip('.txt') + '_logo.txt'
 
+
 # Utils
 def clear():
-    os.system('clear')
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+def enable_utf8():
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
+    if os.name == 'nt':
+        os.system('chcp 65001 > nul')
 
 def press_to_continue():
     input('\nPress Enter to continue')
+
 
 def exit_program(user_input: str) -> None:
     if user_input.strip().lower() in EXIT_COMMANDS:
         print("\nExiting program...\n")
         time.sleep(1)
         exit()
+
 
 def checked_input(message=''):
     if message:
@@ -39,48 +52,54 @@ def print_centered(text: str) -> None:
     padding = (width - len(text)) // 2
     print(" " * max(padding, 0) + text, end='')
 
-def filepath_ckeck(filepath):
+
+def filepath_check(filepath):
     try:
-        with open(filepath) as f:
+        with open(filepath, encoding='utf-8') as f:
             return None
     except FileNotFoundError:
         print(f'File {filepath} not found.\nPlease check the file name.')
         exit()
 
+
 def print_logo(filepath):
-    filepath_ckeck(filepath)
-    with open(filepath, 'r') as f:
+    filepath_check(filepath)
+    with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
         print(f.read())
 
+
+
 def print_logo_centered(filepath):
-    filepath_ckeck(filepath)
-    with open(filepath, 'r') as f:
+    filepath_check(filepath)
+    with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
         for row in f.read().splitlines():
             print_centered(row)
             time.sleep(0.1)
             print()
         time.sleep(1)
 
+
 def print_menu(filepath):
-    filepath_ckeck(filepath)
+    filepath_check(filepath)
     clear()
     print_logo(filepath.rstrip('.txt') + '_logo.txt')
-    with open(filepath, 'r') as f:
+    with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
         print(f.read())
+
+
 
 def ask_for_visualize(df):
     user_input = checked_input('\nDo you want to plot this table?\n\n1. Yes\2. No').lower()
     while user_input not in ("1", "y", "yes", '2', 'no', 'n'):
         print(f'\nYou entered {user_input} which is not an option! Please re-enter')
         time.sleep(1)
-        user_input = checked_input('\nDo you want to plot this table?\n\n1. Yes\2. No').lower()
+        user_input = checked_input('\nDo you want to plot this table?\n\n1. Yes\n2. No').lower()
     match user_input:
         case "1" | "y" | "yes":
             x_col, y_col = df.columns
             visualization.bar_plot(df, x_col, y_col)
         case '2' | 'no' | 'n':
             pass
-
 
 
 # Menus
@@ -97,12 +116,13 @@ def main_menu(df):
         case "3":
             pass
         case "4":
-            pass
+            analysis.correlation_overview(df)  # NEW
+            press_to_continue()
         case _:
             print('\nNot an option!')
             time.sleep(1)
             main_menu()
-    
+
 
 def preset_reports_menu(df: pd.DataFrame):
     print_menu(PRESET_REPORTS_MENU)
