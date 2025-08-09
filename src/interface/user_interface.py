@@ -14,7 +14,6 @@ MAIN_MENU_LOGO = MAIN_MENU.rstrip('.txt') + '_logo.txt'
 PRESET_REPORTS_MENU = MENUS_PATH + r'/preset_reports_menu.txt'
 PRESET_REPORTS_LOGO = PRESET_REPORTS_MENU.rstrip('.txt') + '_logo.txt'
 
-
 # Utils
 def clear():
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -54,8 +53,7 @@ def exit_program(user_input: str) -> None:
         time.sleep(1)
         exit()
 
-
-def checked_input(message=''):
+def checked_input(message='') -> str:
     if message:
         print(message)
     user_input = input(USER_INPUT_FORM)
@@ -77,7 +75,6 @@ def filepath_check(filepath):
         print(f'File {filepath} not found.\nPlease check the file name.')
         exit()
 
-
 def print_logo(filepath):
     filepath_check(filepath)
     with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
@@ -92,7 +89,7 @@ def print_logo_centered(filepath):
             print_centered(row)
             time.sleep(0.1)
             print()
-        time.sleep(1)
+        time.sleep(0.2)
 
 
 def print_menu(filepath):
@@ -103,9 +100,8 @@ def print_menu(filepath):
         print(f.read())
 
 
-
-def ask_for_visualize(df):
-    user_input = checked_input('\nDo you want to plot this table?\n\n1. Yes\2. No').lower()
+def ask_for_visualize(df, plot_title=None, chart_type='bar') -> None:
+    user_input = checked_input('\nDo you want to plot this table?\n\n1. Yes\n2. No').lower()
     while user_input not in ("1", "y", "yes", '2', 'no', 'n'):
         print(f'\nYou entered {user_input} which is not an option! Please re-enter')
         time.sleep(1)
@@ -113,10 +109,45 @@ def ask_for_visualize(df):
     match user_input:
         case "1" | "y" | "yes":
             x_col, y_col = df.columns
-            visualization.bar_plot(df, x_col, y_col)
+            match chart_type:
+                case 'bar':
+                    visualization.bar_plot(df, x_col, y_col, plot_title=plot_title)
+                case 'line':
+                    visualization.line_plot(df, x_col, y_col, plot_title=plot_title)
         case '2' | 'no' | 'n':
             pass
 
+
+
+# def ask_for_visualize_MY(df):
+#     user_input = checked_input('\nDo you want to plot this table?\n\n1. Yes\2. No').lower()
+#     while user_input not in ("1", "y", "yes", '2', 'no', 'n'):
+#         print(f'\nYou entered {user_input} which is not an option! Please re-enter')
+#         time.sleep(1)
+#         user_input = checked_input('\nDo you want to plot this table?\n\n1. Yes\n2. No').lower()
+#     match user_input:
+#         case "1" | "y" | "yes":
+#             x_col, y_col = df.columns
+#             visualization.bar_plot(df, x_col, y_col)
+#         case '2' | 'no' | 'n':
+#             pass
+
+
+def check_year(year: str) -> pd.Timestamp:
+    valid_years = [str(y) for y in range(2016, 2024)]
+    min_year = min(valid_years)
+    max_year = max(valid_years)
+    while year not in valid_years:
+        year = checked_input(f'Not an option! Please, choose the year from {min_year} to {max_year}')
+    return pd.to_datetime(year).year
+
+
+def check_city(df: pd.DataFrame, city: str) -> str:
+    valid_cities = df['City'].str.lower().unique()
+    city = city.lower()
+    while city not in valid_cities:
+        city = checked_input(f'The data base has no this city. Please, check the city name.')
+    return city
 
 # Menus
 
@@ -132,13 +163,12 @@ def main_menu(df):
         case "3":
             pass
         case "4":
-            analysis.correlation_overview(df)  # NEW
-            press_to_continue(df)
+            pass
         case _:
             print('\nNot an option!')
             time.sleep(1)
             main_menu()
-
+    
 
 def preset_reports_menu(df: pd.DataFrame):
     print_menu(PRESET_REPORTS_MENU)
@@ -148,12 +178,22 @@ def preset_reports_menu(df: pd.DataFrame):
         case "1":
             df_count_by_cities = analysis.count_by_cities(df)
             print(df_count_by_cities)
-            ask_for_visualize(df_count_by_cities)
-            press_to_continue(df)
+            ask_for_visualize(df_count_by_cities, plot_title='Top accidents by city for 2016 - 2023')
+            press_to_continue()
         case "2":
-            kpi_by_year_menu(df)
+            user_year = checked_input('\nEnter the year')
+            user_year = check_year(user_year)
+            df_count_by_cities = analysis.count_by_cities_years(df, year=user_year)
+            print(df_count_by_cities)
+            ask_for_visualize(df_count_by_cities, plot_title=f'Top accidets by city for {user_year} year')
+            press_to_continue()
         case "3":
-            pass
+            user_city = checked_input('\nEnter the city name')
+            user_city = check_city(df, user_city)
+            df_city_accidents_count_by_year = analysis.city_accidents_count_by_year(df, city=user_city)
+            print(df_city_accidents_count_by_year)
+            ask_for_visualize(df_city_accidents_count_by_year, chart_type='line', plot_title=f'Count of accidents for the {user_city}, split by year')
+            press_to_continue()
         case "4":
             pass
         case _:

@@ -15,8 +15,9 @@ def plot_corr(corr: pd.DataFrame) -> None:
     plt.show()
 
 
-def bar_plot(df: pd.DataFrame, x_col: str, y_col: str, filename: str = 'temp/barplot.png') -> None:
+def bar_plot(df: pd.DataFrame, x_col: str, y_col: str, plot_title = None, filename: str = 'temp/barplot.png') -> None:
     plt.figure(figsize=(12, 9))
+    plt.title(plot_title)
     sns.barplot(data=df, x=x_col, y=y_col)
     plt.show()
 
@@ -38,4 +39,14 @@ def multi_bar_plot(df, x_col, y_cols, title="KPIs by year"):
     ax.set_title(title)
     ax.legend()
     fig.tight_layout()
+    plt.show()
+
+
+
+def line_plot(df: pd.DataFrame, x_col: str, y_col: str, plot_title = None, filename: str = 'temp/lineplot.png') -> None:
+    plt.figure(figsize=(12, 9))
+    plt.title(plot_title)
+    for x, y in zip(df[x_col], df[y_col]):
+        plt.text(x, y+2, f'{y}', ha='center', va='bottom', fontsize=12)
+    sns.lineplot(data=df, x=x_col, y=y_col, marker="o")
     plt.show()

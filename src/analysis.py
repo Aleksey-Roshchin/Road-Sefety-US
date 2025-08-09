@@ -3,57 +3,36 @@ import numpy as np
 import pandas as pd
 # from src.data_loader import load_orifinal_data_csv
 import src.constants as consts
-from src.visualization import plot_corr
-
-from src.visualization import plot_corr
-
-def correlation_overview(df):
-
-    if df is None or df.empty:
-        print('\n[Heatmap] No data after filtering (maybe last year drop on a small sample). Try loading more rows or disable last-year drop for sample load.')
-        return
-
-    for c in ["is_weekend", "time_of_day", "wind_speed_bin", "is_freezing", "road_type", "has_precipitation"]:
-        show(df, c)
-        show(df, c)
-
-    num = [
-        "Severity", "is_severe", "is_night", "is_rush_hour",
-        "has_precipitation", "has_bad_weather", "is_visibility_low",
-        "is_weekend", "is_freezing", "has_bump", "has_crossing",
-    ]
-
-    X = pd.get_dummies(df[["road_type", "wind_speed_bin", "time_of_day"]], drop_first=True)
-    data = pd.concat([df[num], X], axis=1).astype("float32", copy=False)
-    corr = data.corr()
-    plot_corr(corr)
+import src.preprocessing as prepro
 
 # Functions
-# def count_by_cities(df: pd.DataFrame, num_rows=consts.NUM_ROWS, cities=None) -> pd.DataFrame:
+# def count_by_cities_(df: pd.DataFrame, num_rows=consts.NUM_ROWS, cities=None) -> pd.DataFrame:
 #     if cities is None:
-#         df_processed = df['City'].value_counts().head(num_rows).reset_index()
-#         df_processed.columns = ['City', 'Count']
+#         out = df['City'].value_counts().head(num_rows).reset_index()
+#         out.columns = ['City', 'NumOfAccidents']
+#         return out
 #     else:
-#         df_processed = df[df['City'].isin(cities)].groupby('City')['City'].count().head(num_rows).sort_values(by='City', ascending=False)
-#         df_processed.columns = ['City', 'Count']
-#     return df_processed
-
+#         mask = df['City'].isin(cities)
+#         out = (
+#             df.loc[mask]
+#               .groupby('City', observed=True)
+#               .size()
+#               .reset_index(name='Count')
+#               .sort_values('Count', ascending=False)
+#               .head(num_rows)
+#         )
+#         return out
+#
 def count_by_cities(df: pd.DataFrame, num_rows=consts.NUM_ROWS, cities=None) -> pd.DataFrame:
     if cities is None:
-        out = df['City'].value_counts().head(num_rows).reset_index()
-        out.columns = ['City', 'Count']
-        return out
+        df_processed = df['City'].value_counts().head(num_rows).reset_index()
+        df_processed.columns = ['City', 'NumOfAccidents']
     else:
-        mask = df['City'].isin(cities)
-        out = (
-            df.loc[mask]
-              .groupby('City', observed=True)
-              .size()
-              .reset_index(name='Count')
-              .sort_values('Count', ascending=False)
-              .head(num_rows)
-        )
-        return out
+        df_processed = df[df['City'].isin(cities)].groupby('City')['City'].count().head(num_rows).sort_values(by='City', ascending=False)
+        df_processed.columns = ['City', 'NumOfAccidents']
+    prepro.set_index_starting_from_one(df_processed)
+    return df_processed
+
 
 def feat(df):
     df = df.copy()
@@ -229,3 +208,30 @@ def kpi_components_by_year(df: pd.DataFrame, scale: int = 10000) -> pd.DataFrame
         out[c] = (out[c] / float(scale)).round(2)
 
     return out.sort_values("year")
+
+def count_by_cities_years(df: pd.DataFrame, num_rows=consts.NUM_ROWS, cities=None, year=2023) -> pd.DataFrame:
+    if cities is None:
+        df_processed = pd.DataFrame({
+            "City": df['City'],
+            'Year': pd.to_datetime(df['Start_Time']).dt.year
+        })
+        df_processed = df_processed[df_processed['Year'] == year]['City']
+        df_processed = df_processed.value_counts().head(num_rows).reset_index()
+        df_processed.columns = ['City', 'NumOfAccidents']
+    else:
+        df_processed = df[df['City'].isin(cities)].groupby('City')['City'].count().head(num_rows).sort_values(by='City', ascending=False)
+        df_processed.columns = ['City', 'NumAccidents']
+    prepro.set_index_starting_from_one(df_processed)
+    return df_processed
+
+
+def city_accidents_count_by_year(df: pd.DataFrame, num_rows=consts.NUM_ROWS, city='new york') -> pd.DataFrame:
+    df_processed = pd.DataFrame({
+        "City": df['City'],
+        'Year': pd.to_datetime(df['Start_Time']).dt.year
+    })
+    df_processed = df_processed[df['City'] == city]
+    df_processed = df_processed.groupby('Year')['City'].count().reset_index()
+    # df_processed.columns = ['City', 'Year', 'NumAccidents']
+    prepro.set_index_starting_from_one(df_processed)
+    return df_processed
