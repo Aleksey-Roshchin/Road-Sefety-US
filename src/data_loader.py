@@ -1,8 +1,10 @@
 import pandas as pd
 from src.constants import CSV
-
+from src.preprocessing import base_preprocess_datetime
 
 # ! Hardcoded ! It's unclear why this list of columns is used.
+from src.preprocessing import base_preprocess_datetime
+
 def ld(p, yrs=None):
     keep = [
         "Start_Time", "Severity",
@@ -16,8 +18,11 @@ def ld(p, yrs=None):
     if yrs:
         cut = df["Start_Time"].max() - pd.DateOffset(years=yrs)
         df = df[df["Start_Time"] >= cut]
+    df = base_preprocess_datetime(
+        df,
+        drop_last_year=True,
+        apply_outliers=True,
+        outlier_cols=["Visibility(mi)", "Precipitation(in)", "Temperature(F)", "Wind_Speed(mph)"]
+    )
+
     return df
-
-
-def load_orifinal_data_csv():
-    return pd.read_csv(CSV)

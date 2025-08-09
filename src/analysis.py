@@ -1,9 +1,32 @@
 import re
 import numpy as np
 import pandas as pd
-from src.data_loader import load_orifinal_data_csv
+# from src.data_loader import load_orifinal_data_csv
 import src.constants as consts
 from src.visualization import plot_corr
+
+from src.visualization import plot_corr
+
+def correlation_overview(df):
+
+    if df is None or df.empty:
+        print('\n[Heatmap] No data after filtering (maybe last year drop on a small sample). Try loading more rows or disable last-year drop for sample load.')
+        return
+
+    for c in ["is_weekend", "time_of_day", "wind_speed_bin", "is_freezing", "road_type", "has_precipitation"]:
+        show(df, c)
+        show(df, c)
+
+    num = [
+        "Severity", "is_severe", "is_night", "is_rush_hour",
+        "has_precipitation", "has_bad_weather", "is_visibility_low",
+        "is_weekend", "is_freezing", "has_bump", "has_crossing",
+    ]
+
+    X = pd.get_dummies(df[["road_type", "wind_speed_bin", "time_of_day"]], drop_first=True)
+    data = pd.concat([df[num], X], axis=1).astype("float32", copy=False)
+    corr = data.corr()
+    plot_corr(corr)
 
 # Functions
 # def count_by_cities(df: pd.DataFrame, num_rows=consts.NUM_ROWS, cities=None) -> pd.DataFrame:
@@ -88,24 +111,6 @@ def feat(df):
 
     return df
 
-def correlation_overview(df):
-
-    for c in ["is_weekend", "time_of_day", "wind_speed_bin",
-              "is_freezing", "road_type", "has_precipitation"]:
-        show(df, c)
-
-    num = [
-        "Severity", "is_severe", "is_night", "is_rush_hour",
-        "has_precipitation", "has_bad_weather", "is_visibility_low",
-        "is_weekend", "is_freezing", "has_bump", "has_crossing",
-    ]
-    X = pd.get_dummies(df[["road_type", "wind_speed_bin", "time_of_day"]],
-                       drop_first=True)
-    data = pd.concat([df[num], X], axis=1).astype("float32", copy=False)
-
-    corr = data.corr()
-    plot_corr(corr)
-
 
 def corr_show(df, feature_col):
     target_col = "is_severe"
@@ -129,3 +134,98 @@ def show(df, feature_col):
             f"share={row['share']:.3f}  "
             f"diff={row['delta_pct']:+6.1f}%"
         )
+
+def _year_col(df):
+    return pd.to_datetime(df['Start_Time'], errors='coerce').dt.year
+
+def kpi_by_year(df: pd.DataFrame, metric: str = 'accidents') -> pd.DataFrame:
+    y = pd.to_datetime(df['Start_Time'], errors='coerce').dt.year
+    g = df.copy().assign(year=y)
+
+    if metric == 'accidents':
+        out = g.groupby('year').size().reset_index(name='accidents')
+    elif metric == 'severe_share':
+        out = g.groupby('year')['is_severe'].mean().reset_index(name='severe_share')
+    elif metric == 'avg_severity':
+        out = g.groupby('year')['Severity'].mean().reset_index(name='avg_severity')
+    elif metric == 'weekend_share':
+        out = g.groupby('year')['is_weekend'].mean().reset_index(name='weekend_share')
+    elif metric == 'precip_share':
+        out = g.groupby('year')['has_precipitation'].mean().reset_index(name='precip_share')
+    elif metric == 'bad_weather_share':
+        out = g.groupby('year')['has_bad_weather'].mean().reset_index(name='bad_weather_share')
+    else:
+        out = g.groupby('year').size().reset_index(name='accidents')
+
+    out = out.dropna()
+    if 'year' in out.columns:
+        out['year'] = out['year'].astype(int)
+
+    value_col = [c for c in out.columns if c != 'year'][0]
+    if value_col.endswith('_share'):
+        out[value_col] = (out[value_col] * 100).round(1)  # percent
+    elif value_col == 'avg_severity':
+        out[value_col] = out[value_col].round(2)
+
+    return out.sort_values('year')
+
+
+def kpi_by_year_all(df: pd.DataFrame) -> pd.DataFrame:
+
+    y = pd.to_datetime(df['Start_Time'], errors='coerce').dt.year
+    g = df.copy().assign(year=y)
+
+    out = (
+        g.groupby('year')
+         .agg(
+             accidents=('Severity', 'size'),
+             severe_share=('is_severe', 'mean'),
+             avg_severity=('Severity', 'mean'),
+             weekend_share=('is_weekend', 'mean'),
+             precip_share=('has_precipitation', 'mean'),
+             bad_weather_share=('has_bad_weather', 'mean'),
+         )
+         .reset_index()
+    )
+
+    out['year'] = out['year'].astype(int)
+    for c in ['severe_share', 'weekend_share', 'precip_share', 'bad_weather_share']:
+        out[c] = (out[c] * 100).round(1)
+    out['avg_severity'] = out['avg_severity'].round(2)
+    return out.sort_values('year')
+
+def kpi_components_by_year(df: pd.DataFrame, scale: int = 10000) -> pd.DataFrame:
+
+    g = df.copy()
+    g["year"] = pd.to_datetime(g["Start_Time"], errors="coerce").dt.year
+
+    severe = g.get("is_severe", pd.Series(0, index=g.index)).astype(bool)
+    weekend = g.get("is_weekend", pd.Series(0, index=g.index)).astype(bool)
+    precip = g.get("has_precipitation", pd.Series(0, index=g.index)).astype(bool)
+    bad    = g.get("has_bad_weather", pd.Series(0, index=g.index)).astype(bool)
+
+    bucket_severe = severe
+    bucket_weekend = (~bucket_severe) & weekend
+    bucket_precip = (~bucket_severe) & (~bucket_weekend) & precip
+    bucket_bad    = (~bucket_severe) & (~bucket_weekend) & (~bucket_precip) & bad
+    bucket_other  = ~(bucket_severe | bucket_weekend | bucket_precip | bucket_bad)
+
+    parts = pd.DataFrame({
+        "year": g["year"],
+        "severe": bucket_severe.astype(int),
+        "weekend_only": bucket_weekend.astype(int),
+        "precip_only": bucket_precip.astype(int),
+        "bad_only": bucket_bad.astype(int),
+        "other": bucket_other.astype(int),
+    })
+
+    agg = parts.groupby("year", as_index=False).sum()
+
+    totals = g.groupby("year", as_index=False).size().rename(columns={"size": "accidents"})
+
+    out = agg.merge(totals, on="year", how="left")
+
+    for c in ["severe", "weekend_only", "precip_only", "bad_only", "other", "accidents"]:
+        out[c] = (out[c] / float(scale)).round(2)
+
+    return out.sort_values("year")
