@@ -3,12 +3,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import src.interface.user_interface as ui
 import time
-from datetime import datetime
+import src.preprocessing as prepro
 from src.constants import  CSV
 from src.data_loader import load_orifinal_data_csv
 
 #df_original = load_orifinal_data_csv()
 df_original = pd.read_csv('data/processed/first_1000_rows.csv')
+df_processed = prepro.object_columns_to_category(df_original, columns= ['City'])
 
 def main(df):
     ui.clear()
@@ -17,4 +18,4 @@ def main(df):
 
 
 if __name__ == "__main__":
-    main(df_original)
+    main(df_processed)

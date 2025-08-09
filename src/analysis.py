@@ -24,11 +24,22 @@ def count_by_cities_years(df: pd.DataFrame, num_rows=consts.NUM_ROWS, cities=Non
             'Year': pd.to_datetime(df['Start_Time']).dt.year
         })
         df_processed = df_processed[df_processed['Year'] == year]['City']
-        # df_processed = df_processed['City', 'Count']
         df_processed = df_processed.value_counts().head(num_rows).reset_index()
         df_processed.columns = ['City', 'NumOfAccidents']
     else:
         df_processed = df[df['City'].isin(cities)].groupby('City')['City'].count().head(num_rows).sort_values(by='City', ascending=False)
         df_processed.columns = ['City', 'NumAccidents']
+    prepro.set_index_starting_from_one(df_processed)
+    return df_processed
+
+
+def city_accidents_count_by_year(df: pd.DataFrame, num_rows=consts.NUM_ROWS, city='new york') -> pd.DataFrame:
+    df_processed = pd.DataFrame({
+        "City": df['City'],
+        'Year': pd.to_datetime(df['Start_Time']).dt.year
+    })
+    df_processed = df_processed[df['City'] == city]
+    df_processed = df_processed.groupby('Year')['City'].count().reset_index()
+    # df_processed.columns = ['City', 'Year', 'NumAccidents']
     prepro.set_index_starting_from_one(df_processed)
     return df_processed

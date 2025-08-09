@@ -25,3 +25,14 @@ def remove_outliers_iqr_col(df, col):
 def set_index_starting_from_one(df: pd.DataFrame) -> pd.DataFrame:
     df.index = range(1, len(df) + 1)
     return df
+
+
+def object_columns_to_category(df: pd.DataFrame, columns=None) -> pd.DataFrame:
+    df_processed = df.copy()
+    if columns is None:
+        for col in df_processed.select_dtypes(include='object'):
+            df_processed[col] = df_processed[col].str.lower().astype('category')
+    else:
+        for col in columns:
+            df_processed[col] = df_processed[col].str.lower().astype('category')
+    return df_processed
