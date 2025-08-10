@@ -17,8 +17,9 @@ PRESET_REPORTS_LOGO = PRESET_REPORTS_MENU.rstrip('.txt') + '_logo.txt'
 def clear():
     os.system('clear')
 
-def press_to_continue():
+def press_to_continue(next_action, df: pd.DataFrame) -> None:
     input('\nPress Enter to continue')
+    next_action(df)
 
 def exit_program(user_input: str) -> None:
     if user_input.strip().lower() in EXIT_COMMANDS:
@@ -132,23 +133,30 @@ def preset_reports_menu(df: pd.DataFrame):
             df_count_by_cities = analysis.count_by_cities(df)
             print(df_count_by_cities)
             ask_for_visualize(df_count_by_cities, plot_title='Top accidents by city for 2016 - 2023')
-            press_to_continue()
+            press_to_continue(main_menu, df)
         case "2":
             user_year = checked_input('\nEnter the year')
             user_year = check_year(user_year)
             df_count_by_cities = analysis.count_by_cities_years(df, year=user_year)
             print(df_count_by_cities)
             ask_for_visualize(df_count_by_cities, plot_title=f'Top accidets by city for {user_year} year')
-            press_to_continue()
+            press_to_continue(main_menu, df)
         case "3":
             user_city = checked_input('\nEnter the city name')
             user_city = check_city(df, user_city)
             df_city_accidents_count_by_year = analysis.city_accidents_count_by_year(df, city=user_city)
             print(df_city_accidents_count_by_year)
             ask_for_visualize(df_city_accidents_count_by_year, chart_type='line', plot_title=f'Count of accidents for the {user_city}, split by year')
-            press_to_continue()
+            press_to_continue(main_menu, df)
         case "4":
-            pass
+            user_city = checked_input('\nEnter the city name')
+            user_city = check_city(df, user_city)
+            user_year = checked_input('\nEnter the year')
+            user_year = check_year(user_year)
+            df_city_dangerous_streets = analysis.city_dangerous_streets(df, city=user_city, year=user_year)
+            print(df_city_dangerous_streets)
+            ask_for_visualize()
+            press_to_continue(main_menu, df)
         case _:
             print('\nNot an option!')
             time.sleep(1)

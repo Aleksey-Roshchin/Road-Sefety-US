@@ -30,6 +30,7 @@ def count_by_cities_years(df: pd.DataFrame, num_rows=consts.NUM_ROWS, cities=Non
         df_processed = df[df['City'].isin(cities)].groupby('City')['City'].count().head(num_rows).sort_values(by='City', ascending=False)
         df_processed.columns = ['City', 'NumAccidents']
     prepro.set_index_starting_from_one(df_processed)
+    df_processed['Year'] = df_processed['Year'].astype(str)     # To display the year as discret value when plot
     return df_processed
 
 
@@ -40,6 +41,11 @@ def city_accidents_count_by_year(df: pd.DataFrame, num_rows=consts.NUM_ROWS, cit
     })
     df_processed = df_processed[df['City'] == city]
     df_processed = df_processed.groupby('Year')['City'].count().reset_index()
-    # df_processed.columns = ['City', 'Year', 'NumAccidents']
+    df_processed.columns = ['Year', 'NumAccidents']
     prepro.set_index_starting_from_one(df_processed)
+    df_processed['Year'] = df_processed['Year'].astype(str)     # To display the year as discret value when plot
     return df_processed
+
+
+def city_dangerous_streets(df: pd.DataFrame, city='new york',  year=2023, num_rows=consts.NUM_ROWS):
+    pass
