@@ -4,6 +4,9 @@ import pandas as pd
 # from src.data_loader import load_orifinal_data_csv
 import src.constants as consts
 import src.preprocessing as prepro
+import src.visualization as visualization
+from src.preprocessing import object_columns_to_category
+
 
 # Functions
 # def count_by_cities_(df: pd.DataFrame, num_rows=consts.NUM_ROWS, cities=None) -> pd.DataFrame:
@@ -23,6 +26,67 @@ import src.preprocessing as prepro
 #         )
 #         return out
 #
+
+
+def correlation_overview(df):
+    # 0) Пустой фрейм — выходим
+    if df is None or df.empty:
+        print('\n[Heatmap] No data after filtering. Load more rows or disable last-year drop.')
+        return None
+
+    # 1) Гарантируем, что фичи есть (если вдруг feat не вызывали)
+    need = {
+        "is_severe","is_weekend","is_night","is_rush_hour",
+        "has_precipitation","has_bad_weather","is_visibility_low",
+        "is_freezing","has_bump","has_crossing","road_type","wind_speed_bin",
+    }
+    if not need.issubset(df.columns):
+        from src.analysis import feat
+        df = feat(df)
+
+    # 2) Печатаем лифты по нескольким ключевым признакам (один раз, без дублей)
+    for c in ["is_weekend", "wind_speed_bin", "is_freezing", "road_type", "has_precipitation"]:
+        if c in df.columns:
+            show(df, c)
+        else:
+            print(f"(skip) {c} — column not found")
+
+    # 3) Готовим матрицу для корреляции
+    num = [
+        "Severity", "is_severe", "is_night", "is_rush_hour",
+        "has_precipitation", "has_bad_weather", "is_visibility_low",
+        "is_weekend", "is_freezing", "has_bump", "has_crossing",
+    ]
+    use_num = [c for c in num if c in df.columns]
+
+    # Категориальные — без time_of_day, как ты и хотел
+    cat = [c for c in ["road_type", "wind_speed_bin"] if c in df.columns]
+    if cat:
+        X = pd.get_dummies(df[cat], drop_first=True, dtype="int8")
+    else:
+        X = pd.DataFrame(index=df.index)
+
+    data = pd.concat([df[use_num].astype("float32", copy=False), X.astype("float32", copy=False)], axis=1)
+    # drop constant columns (no variation) to avoid NaN stripes on heatmap
+    nuniq = data.nunique(dropna=True)
+    const_cols = nuniq[nuniq < 2].index.tolist()
+    if const_cols:
+        print("(skip) constant columns (no variation):", ", ".join(const_cols))
+        data = data.drop(columns=const_cols, errors="ignore")
+
+    if data.shape[1] == 0:
+        print("(skip) all selected columns are constant")
+        return
+
+    if data.shape[1] == 0:
+        print("(skip) nothing to correlate")
+        return None
+
+    corr = data.corr(numeric_only=True)
+    visualization.plot_corr(corr)
+    return corr
+
+
 def count_by_cities(df: pd.DataFrame, num_rows=consts.NUM_ROWS, cities=None) -> pd.DataFrame:
     if cities is None:
         df_processed = df['City'].value_counts().head(num_rows).reset_index()
@@ -34,61 +98,62 @@ def count_by_cities(df: pd.DataFrame, num_rows=consts.NUM_ROWS, cities=None) -> 
     return df_processed
 
 
-def feat(df):
-    df = df.copy()
+def feat(df: pd.DataFrame) -> pd.DataFrame:
+    d = df.copy()
+    d["Start_Time"] = pd.to_datetime(d["Start_Time"], errors="coerce")
+    d["Severity"] = pd.to_numeric(d["Severity"], errors="coerce")
+    d = d.dropna(subset=["Start_Time","Severity"])
 
-    if 'Start_Time' in df.columns and not np.issubdtype(df['Start_Time'].dtype, np.datetime64):
-        df['Start_Time'] = pd.to_datetime(df['Start_Time'], errors='coerce')
+    d["hour"] = d["Start_Time"].dt.hour
+    d["day_of_week"] = d["Start_Time"].dt.dayofweek
+    d["is_night"] = ((d["hour"] >= 20) | (d["hour"] <= 5)).astype(int)
+    d["is_rush_hour"] = (d["hour"].between(7,9) | d["hour"].between(16,19)).astype(int)
+    d["is_weekend"] = (d["day_of_week"] >= 5).astype(int)
 
-    df["Severity"] = pd.to_numeric(df["Severity"], errors="coerce")
-    df = df.dropna(subset=["Severity"])
+    pcol = next((c for c in d.columns if "Precipitation" in c), None)
+    d["has_precipitation"] = (pd.to_numeric(d[pcol], errors="coerce").fillna(0) > 0).astype(int) if pcol else 0
 
-    df["hour"] = df["Start_Time"].dt.hour
-    df["day_of_week"] = df["Start_Time"].dt.dayofweek
-    df["is_night"] = ((df["hour"] >= 20) | (df["hour"] <= 5)).astype(int)
-    df["is_rush_hour"] = (df["hour"].between(7, 9) | df["hour"].between(16, 19)).astype(int)
-    df["is_weekend"] = (df["day_of_week"] >= 5).astype(int)
-    df["time_of_day"] = df["hour"].map(lambda h: "night" if h <= 5 else "morning" if h <= 9 else "day" if h <= 15 else "evening" if h <= 19 else "late")
+    bad_re = r"Rain|Snow|Fog|Thunder|Storm|Hail|Sleet|Blizzard"
 
-    precipitation_column = next((c for c in df.columns if "Precipitation" in c), None)
-    precipitation_values = pd.to_numeric(df[precipitation_column], errors="coerce").fillna(0) if precipitation_column else pd.Series(0, index=df.index, dtype="float64")
-    df["has_precipitation"] = (precipitation_values > 0).astype(int)
-
-    bad_weather_regex = r"Rain|Snow|Fog|Thunder|Storm|Hail|Sleet|Blizzard"
-    weather_condition_series = df["Weather_Condition"] if "Weather_Condition" in df.columns else pd.Series("", index=df.index)
-    df["has_bad_weather"] = weather_condition_series.fillna("").str.contains(bad_weather_regex, case=False, regex=True).astype(int)
-
-    visibility_series = pd.to_numeric(df["Visibility(mi)"], errors="coerce") if "Visibility(mi)" in df.columns else pd.Series(np.nan, index=df.index)
-    df["visibility_bin"] = pd.cut(visibility_series, [-np.inf, 2, 5, np.inf], labels=["<2", "2-5", ">5"])
-    df["is_visibility_low"] = (df["visibility_bin"] == "<2").astype(int)
-
-    temperature_column = next((c for c in df.columns if "Temp" in c), None)
-    df["is_freezing"] = (pd.to_numeric(df[temperature_column], errors="coerce") < 32).astype(int) if temperature_column else 0
-
-    wind_speed_column = next((c for c in df.columns if "Wind_Speed" in c), None)
-    if wind_speed_column:
-        df["wind_speed_bin"] = pd.cut(pd.to_numeric(df[wind_speed_column], errors="coerce"), [-.1, 7, 15, 25, np.inf], labels=["0", "1", "2", "3"])
+    if "Weather_Condition" in d.columns:
+        w = d["Weather_Condition"].astype("string").fillna("")
     else:
-        df["wind_speed_bin"] = pd.Categorical(["NA"] * len(df))
+        w = pd.Series("", index=d.index, dtype="string")
 
-    df["road_type"] = (
-        df["Street"]
-          .fillna(df["Description"])
-          .str.lower()
-          .map(lambda text: (
-              "interstate" if isinstance(text, str) and re.search(r"\b(i-|interstate|fwy)\b", text)
-              else "highway" if isinstance(text, str) and re.search(r"\b(hwy|highway|us-|sr-)\b", text)
-              else "local"
-          ))
+    d["has_bad_weather"] = w.str.contains(bad_re, case=False, regex=True) \
+        .fillna(False).astype(int)
+
+    v = pd.to_numeric(d["Visibility(mi)"], errors="coerce") if "Visibility(mi)" in d.columns else pd.Series(np.nan, index=d.index)
+    d["is_visibility_low"] = (v < 2).astype(int)
+
+    tcol = next((c for c in d.columns if "Temp" in c), None)
+    d["is_freezing"] = (pd.to_numeric(d[tcol], errors="coerce") < 32).astype(int) if tcol else 0
+
+
+    wcol = next((c for c in d.columns if "Wind_Speed" in c), None)
+    if wcol:
+        d["wind_speed_bin"] = pd.cut(pd.to_numeric(d[wcol], errors="coerce"), [-.1, 7, 15, 25, np.inf], labels=["0","1","2","3"])
+    else:
+        d["wind_speed_bin"] = pd.Categorical(["NA"] * len(d))
+
+    txt = d["Street"].fillna(d.get("Description")).astype(str).str.lower()
+    d["road_type"] = txt.map(lambda s:
+        "interstate" if re.search(r"\b(i-|interstate|fwy)\b", s) else
+        ("highway" if re.search(r"\b(hwy|highway|us-|sr-)\b", s) else "local")
     )
 
-    df["is_severe"] = (df["Severity"] >= 3).astype(int)
-    bump_series = pd.to_numeric(df["Bump"], errors="coerce").fillna(0) if "Bump" in df.columns else pd.Series(0, index=df.index)
-    crossing_series = pd.to_numeric(df["Crossing"], errors="coerce").fillna(0) if "Crossing" in df.columns else pd.Series(0, index=df.index)
-    df["has_bump"] = bump_series.astype(int)
-    df["has_crossing"] = crossing_series.astype(int)
+    d["is_severe"] = (d["Severity"] >= 3).astype(int)
+    if "Bump" in d.columns:
+        d["has_bump"] = d["Bump"].astype(str).str.lower().isin(["true", "1", "yes"]).astype(int)
+    else:
+        d["has_bump"] = 0
+    if "Crossing" in d.columns:
+        d["has_crossing"] = d["Crossing"].astype(str).str.lower().isin(["true", "1", "yes"]).astype(int)
+    else:
+        d["has_crossing"] = 0
 
-    return df
+    d = object_columns_to_category(d, columns=["City", "Weather_Condition", "road_type"])
+    return d
 
 
 def corr_show(df, feature_col):

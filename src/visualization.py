@@ -50,3 +50,20 @@ def line_plot(df: pd.DataFrame, x_col: str, y_col: str, plot_title = None, filen
         plt.text(x, y+2, f'{y}', ha='center', va='bottom', fontsize=12)
     sns.lineplot(data=df, x=x_col, y=y_col, marker="o")
     plt.show()
+
+
+
+def stacked_components_bar(df, x_col, stack_cols, title=None, ylabel=None):
+    x = df[x_col].astype(str).tolist()
+    idx = np.arange(len(x))
+    bottom = np.zeros(len(x))
+    for col in stack_cols:
+        y = pd.to_numeric(df[col], errors="coerce").fillna(0).values
+        plt.bar(idx, y, bottom=bottom, label=col)
+        bottom += y
+    plt.xticks(idx, x, rotation=45, ha="right")
+    if title: plt.title(title)
+    if ylabel: plt.ylabel(ylabel)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
