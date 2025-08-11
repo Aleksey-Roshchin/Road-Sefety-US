@@ -1,6 +1,5 @@
 import os, sys
 import pandas as pd
-
 from src.interface import user_interface as ui
 from src.constants import CSV
 from src.data_loader import ld
