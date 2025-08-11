@@ -15,7 +15,6 @@ PRESET_REPORTS_MENU = MENUS_PATH + r'/preset_reports_menu.txt'
 CUSTOM_REPORTS_MENU = MENUS_PATH + r'/custom_reports_menu.txt'
 PRESET_REPORTS_LOGO = PRESET_REPORTS_MENU.rstrip('.txt') + '_logo.txt'
 
-
 # Utils
 def clear():
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -38,17 +37,9 @@ def press_to_continue(df=None):
         print("2. Exit program")
         choice = input("Your choice (1-2): ").strip().lower()
 
-        if choice in ("1", "menu", "m", "y", "yes"):
-            if df is not None:
-                main_menu(df)
-            return
-        if choice in ("2", "exit", "e", "q", "n", "no"):
-            print("\nExit\n")
-            time.sleep(1)
-            exit()
-
-        print("Invalid option. Please choose 1 or 2.")
-
+def press_to_continue(next_action, df: pd.DataFrame) -> None:
+    input('\nPress Enter to continue')
+    next_action(df)
 
 def exit_program(user_input: str) -> None:
     if user_input.strip().lower() in EXIT_COMMANDS:
@@ -56,11 +47,10 @@ def exit_program(user_input: str) -> None:
         time.sleep(1)
         exit()
 
-
 def checked_input(message='') -> str:
     if message:
         print(message)
-    user_input = input(USER_INPUT_FORM)
+    user_input = input(USER_INPUT_FORM).lower().strip()
     exit_program(user_input)
     return user_input
 
@@ -70,7 +60,6 @@ def print_centered(text: str) -> None:
     padding = (width - len(text)) // 2
     print(" " * max(padding, 0) + text, end='')
 
-
 def filepath_check(filepath):
     try:
         with open(filepath, encoding='utf-8') as f:
@@ -79,12 +68,10 @@ def filepath_check(filepath):
         print(f'File {filepath} not found.\nPlease check the file name.')
         exit()
 
-
 def print_logo(filepath):
     filepath_check(filepath)
     with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
         print(f.read())
-
 
 def print_logo_centered(filepath):
     filepath_check(filepath)
@@ -95,15 +82,12 @@ def print_logo_centered(filepath):
             print()
         time.sleep(0.2)
 
-
 def print_menu(filepath):
     filepath_check(filepath)
     clear()
-    # print_logo(filepath.rstrip('.txt') + '_logo.txt')
-    print_logo(filepath)
-    with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
+    print_logo(filepath.rstrip('.txt') + '_logo.txt')
+    with open(filepath, 'r') as f:
         print(f.read())
-
 
 def ask_for_visualize(df, plot_title=None, chart_type='bar') -> None:
     user_input = checked_input('\nDo you want to plot this table?\n\n1. Yes\n2. No').lower()
@@ -123,21 +107,7 @@ def ask_for_visualize(df, plot_title=None, chart_type='bar') -> None:
             pass
 
 
-# def ask_for_visualize_MY(df):
-#     user_input = checked_input('\nDo you want to plot this table?\n\n1. Yes\2. No').lower()
-#     while user_input not in ("1", "y", "yes", '2', 'no', 'n'):
-#         print(f'\nYou entered {user_input} which is not an option! Please re-enter')
-#         time.sleep(1)
-#         user_input = checked_input('\nDo you want to plot this table?\n\n1. Yes\n2. No').lower()
-#     match user_input:
-#         case "1" | "y" | "yes":
-#             x_col, y_col = df.columns
-#             visualization.bar_plot(df, x_col, y_col)
-#         case '2' | 'no' | 'n':
-#             pass
-
-
-def check_year(year: str) -> int:
+def check_year(year: str) -> pd.Timestamp:
     valid_years = [str(y) for y in range(2016, 2024)]
     min_year = min(valid_years)
     max_year = max(valid_years)
@@ -152,7 +122,6 @@ def check_city(df: pd.DataFrame, city: str) -> str:
     while city not in valid_cities:
         city = checked_input(f'The data base has no this city. Please, check the city name.')
     return city
-
 
 # Menus
 
@@ -197,12 +166,17 @@ def preset_reports_menu(df: pd.DataFrame):
             user_city = check_city(df, user_city)
             df_city_accidents_count_by_year = analysis.city_accidents_count_by_year(df, city=user_city)
             print(df_city_accidents_count_by_year)
-            ask_for_visualize(df_city_accidents_count_by_year, chart_type='line',
-                              plot_title=f'Count of accidents for the {user_city}, split by year')
-            press_to_continue(df)
+            ask_for_visualize(df_city_accidents_count_by_year, chart_type='line', plot_title=f'Count of accidents for the {user_city}, split by year')
+            press_to_continue(preset_reports_menu, df)
         case "4":
-            pass
-
+            user_city = checked_input('\nEnter the city name')
+            user_city = check_city(df, user_city)
+            user_year = checked_input('\nEnter the year')
+            user_year = check_year(user_year)
+            df_city_dangerous_streets = analysis.city_dangerous_streets(df, city=user_city, year=user_year)
+            print(df_city_dangerous_streets)
+            ask_for_visualize(df_city_dangerous_streets)
+            press_to_continue(preset_reports_menu, df)
         case "5":
             analysis.correlation_overview(df)
             press_to_continue(df)
@@ -359,8 +333,6 @@ def _choose_period_df(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def custom_reports_menu():
-    pass
 
 
 def help():
