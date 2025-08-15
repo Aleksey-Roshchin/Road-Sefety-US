@@ -30,12 +30,12 @@ def enable_utf8():
         os.system('chcp 65001 > nul')
 
 
-def press_to_continue(df=None):
-    while True:
-        print("\nWhat do you want to do next?")
-        print("1. Return to main menu")
-        print("2. Exit program")
-        choice = input("Your choice (1-2): ").strip().lower()
+# def press_to_continue(df=None):
+#     while True:
+#         print("\nWhat do you want to do next?")
+#         print("1. Return to main menu")
+#         print("2. Exit program")
+#         choice = input("Your choice (1-2): ").strip().lower()
 
 def press_to_continue(next_action, df: pd.DataFrame) -> None:
     input('\nPress Enter to continue')
@@ -97,7 +97,13 @@ def ask_for_visualize(df, plot_title=None, chart_type='bar') -> None:
         user_input = checked_input('\nDo you want to plot this table?\n\n1. Yes\n2. No').lower()
     match user_input:
         case "1" | "y" | "yes":
-            x_col, y_col = df.columns
+            # ✅ брать первые две колонки, исключая служебный 'Year'
+            cols = [c for c in df.columns if c.lower() != "year"]
+            if len(cols) < 2:
+                print("\n[Plot] Not enough columns to plot.")
+                return
+            x_col, y_col = cols[:2]   # было: x_col, y_col = df.columns
+
             match chart_type:
                 case 'bar':
                     visualization.bar_plot(df, x_col, y_col, plot_title=plot_title)
@@ -153,14 +159,14 @@ def preset_reports_menu(df: pd.DataFrame):
             df_count_by_cities = analysis.count_by_cities(df)
             print(df_count_by_cities)
             ask_for_visualize(df_count_by_cities, plot_title='Top accidents by city for 2016 - 2023')
-            press_to_continue(df)
+            press_to_continue(preset_reports_menu,df)
         case "2":
             user_year = checked_input('\nEnter the year')
             user_year = check_year(user_year)
             df_count_by_cities = analysis.count_by_cities_years(df, year=user_year)
             print(df_count_by_cities)
             ask_for_visualize(df_count_by_cities, plot_title=f'Top accidets by city for {user_year} year')
-            press_to_continue(df)
+            press_to_continue(preset_reports_menu,df)
         case "3":
             user_city = checked_input('\nEnter the city name')
             user_city = check_city(df, user_city)
@@ -179,7 +185,7 @@ def preset_reports_menu(df: pd.DataFrame):
             press_to_continue(preset_reports_menu, df)
         case "5":
             analysis.correlation_overview(df)
-            press_to_continue(df)
+            press_to_continue(preset_reports_menu,df)
         case _:
             print('\nNot an option!')
             time.sleep(1)
@@ -247,7 +253,7 @@ def kpi_by_year_menu(df: pd.DataFrame):
 
         print(pretty[["year", "accidents"]].rename(columns={"accidents": "Accidents (per 10k)"}))
 
-        press_to_continue(df)
+        press_to_continue(main_menu,df)
         return
 
     metric = metric_map.get(choice, "accidents")
@@ -256,7 +262,7 @@ def kpi_by_year_menu(df: pd.DataFrame):
     if len(df_kpi.columns) == 2:
         ask_for_visualize(df_kpi)
 
-    press_to_continue(df)
+    press_to_continue(main_menu,df)
 
 
 def _start_from_input(s: str):

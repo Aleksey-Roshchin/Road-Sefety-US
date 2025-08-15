@@ -15,11 +15,20 @@ def plot_corr(corr: pd.DataFrame) -> None:
     plt.show()
 
 
-def bar_plot(df: pd.DataFrame, x_col: str, y_col: str, plot_title = None, filename: str = 'temp/barplot.png') -> None:
-    plt.figure(figsize=(12, 9))
-    plt.title(plot_title)
-    sns.barplot(data=df, x=x_col, y=y_col)
+def bar_plot(df: pd.DataFrame, x_col: str, y_col: str, plot_title=None, filename: str = 'temp/barplot.png') -> None:
+    t = df[[x_col, y_col]].copy()
+    t[y_col] = pd.to_numeric(t[y_col], errors="coerce").fillna(0)
+    TOP_N = 15
+    t = t.sort_values(y_col, ascending=False).head(TOP_N)
+    plt.figure(figsize=(12, 6), dpi=120)
+    plt.bar(t[x_col].astype(str), t[y_col].values)
+    plt.title(plot_title or y_col)
+    plt.xlabel(x_col)
+    plt.ylabel(y_col)
+    plt.xticks(rotation=45, ha="right")
+    plt.tight_layout()
     plt.show()
+
 
 
 def multi_bar_plot(df, x_col, y_cols, title="KPIs by year"):

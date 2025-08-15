@@ -34,7 +34,6 @@ def correlation_overview(df):
         print('\n[Heatmap] No data after filtering. Load more rows or disable last-year drop.')
         return None
 
-    # 1) Гарантируем, что фичи есть (если вдруг feat не вызывали)
     need = {
         "is_severe","is_weekend","is_night","is_rush_hour",
         "has_precipitation","has_bad_weather","is_visibility_low",
@@ -44,14 +43,12 @@ def correlation_overview(df):
         from src.analysis import feat
         df = feat(df)
 
-    # 2) Печатаем лифты по нескольким ключевым признакам (один раз, без дублей)
     for c in ["is_weekend", "wind_speed_bin", "is_freezing", "road_type", "has_precipitation"]:
         if c in df.columns:
             show(df, c)
         else:
             print(f"(skip) {c} — column not found")
 
-    # 3) Готовим матрицу для корреляции
     num = [
         "Severity", "is_severe", "is_night", "is_rush_hour",
         "has_precipitation", "has_bad_weather", "is_visibility_low",
@@ -59,7 +56,6 @@ def correlation_overview(df):
     ]
     use_num = [c for c in num if c in df.columns]
 
-    # Категориальные — без time_of_day, как ты и хотел
     cat = [c for c in ["road_type", "wind_speed_bin"] if c in df.columns]
     if cat:
         X = pd.get_dummies(df[cat], drop_first=True, dtype="int8")
@@ -67,7 +63,6 @@ def correlation_overview(df):
         X = pd.DataFrame(index=df.index)
 
     data = pd.concat([df[use_num].astype("float32", copy=False), X.astype("float32", copy=False)], axis=1)
-    # drop constant columns (no variation) to avoid NaN stripes on heatmap
     nuniq = data.nunique(dropna=True)
     const_cols = nuniq[nuniq < 2].index.tolist()
     if const_cols:
@@ -239,21 +234,17 @@ def kpi_by_year_all(df: pd.DataFrame) -> pd.DataFrame:
     return out.sort_values('year')
 
 def kpi_components_by_year(df: pd.DataFrame, scale: int = 10000) -> pd.DataFrame:
-
     g = df.copy()
     g["year"] = pd.to_datetime(g["Start_Time"], errors="coerce").dt.year
-
     severe = g.get("is_severe", pd.Series(0, index=g.index)).astype(bool)
     weekend = g.get("is_weekend", pd.Series(0, index=g.index)).astype(bool)
     precip = g.get("has_precipitation", pd.Series(0, index=g.index)).astype(bool)
     bad    = g.get("has_bad_weather", pd.Series(0, index=g.index)).astype(bool)
-
     bucket_severe = severe
     bucket_weekend = (~bucket_severe) & weekend
     bucket_precip = (~bucket_severe) & (~bucket_weekend) & precip
     bucket_bad    = (~bucket_severe) & (~bucket_weekend) & (~bucket_precip) & bad
     bucket_other  = ~(bucket_severe | bucket_weekend | bucket_precip | bucket_bad)
-
     parts = pd.DataFrame({
         "year": g["year"],
         "severe": bucket_severe.astype(int),
@@ -262,16 +253,11 @@ def kpi_components_by_year(df: pd.DataFrame, scale: int = 10000) -> pd.DataFrame
         "bad_only": bucket_bad.astype(int),
         "other": bucket_other.astype(int),
     })
-
     agg = parts.groupby("year", as_index=False).sum()
-
     totals = g.groupby("year", as_index=False).size().rename(columns={"size": "accidents"})
-
     out = agg.merge(totals, on="year", how="left")
-
     for c in ["severe", "weekend_only", "precip_only", "bad_only", "other", "accidents"]:
         out[c] = (out[c] / float(scale)).round(2)
-
     return out.sort_values("year")
 
 def count_by_cities_years(df: pd.DataFrame, num_rows=consts.NUM_ROWS, cities=None, year=2023) -> pd.DataFrame:
@@ -289,6 +275,26 @@ def count_by_cities_years(df: pd.DataFrame, num_rows=consts.NUM_ROWS, cities=Non
     prepro.set_index_starting_from_one(df_processed)
     df_processed['Year'] = df_processed['Year'].astype(str)     # To display the year as discret value when plot
     return df_processed
+
+def count_by_cities_years(df: pd.DataFrame, num_rows=consts.NUM_ROWS, cities=None, year=2023) -> pd.DataFrame:
+    years = pd.to_datetime(df["Start_Time"], errors="coerce").dt.year
+    tmp = pd.DataFrame({"City": df["City"], "Year": years}).dropna(subset=["City", "Year"])
+    year = int(year)
+    tmp = tmp[tmp["Year"] == year]
+    if cities is not None:
+        tmp = tmp[tmp["City"].isin(cities)]
+    out = (
+        tmp.groupby("City", as_index=False)
+           .size()
+           .rename(columns={"size": "NumOfAccidents"})
+           .sort_values("NumOfAccidents", ascending=False)
+           .head(num_rows)
+           .reset_index(drop=True)
+    )
+    out["Year"] = year
+    out = out[["City", "NumOfAccidents", "Year"]]
+    prepro.set_index_starting_from_one(out)
+    return out
 
 
 def city_accidents_count_by_year(df: pd.DataFrame, num_rows=consts.NUM_ROWS, city='new york') -> pd.DataFrame:
