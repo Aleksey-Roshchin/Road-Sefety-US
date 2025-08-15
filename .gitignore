@@ -5,3 +5,4 @@ src/__pycache__/analysis.cpython-312.pyc
 src/__pycache__/constants.cpython-312.pyc
 src/__pycache__/data_loader.cpython-312.pyc
 src/__pycache__/visualization.cpython-312.pyc
+src/interface/__pycache__/user_interface.cpython-312.pyc
