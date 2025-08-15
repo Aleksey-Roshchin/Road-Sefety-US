@@ -41,7 +41,7 @@ def main(df: pd.DataFrame):
     ui.main_menu(df)
 
 if __name__ == "__main__":
-    # df = load_first_1000()
+    df = load_first_1000()
     # main(df_processed)
-    df = load_full()
+    #df = load_full()
     main(df)
