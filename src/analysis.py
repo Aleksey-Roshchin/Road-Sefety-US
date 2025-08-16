@@ -3,113 +3,131 @@ import numpy as np
 import pandas as pd
 # from src.data_loader import load_orifinal_data_csv
 import src.constants as consts
-from src.visualization import plot_corr
+import src.preprocessing as prepro
+import src.visualization as visualization
+from src.preprocessing import object_columns_to_category
 
-from src.visualization import plot_corr
 
 def correlation_overview(df):
-
     if df is None or df.empty:
-        print('\n[Heatmap] No data after filtering (maybe last year drop on a small sample). Try loading more rows or disable last-year drop for sample load.')
-        return
+        print('\n[Heatmap] No data after filtering. Load more rows or disable last-year drop.')
+        return None
 
-    for c in ["is_weekend", "time_of_day", "wind_speed_bin", "is_freezing", "road_type", "has_precipitation"]:
-        show(df, c)
-        show(df, c)
+    need = {
+        "is_severe","is_weekend","is_night","is_rush_hour",
+        "has_precipitation","has_bad_weather","is_visibility_low",
+        "is_freezing","has_bump","has_crossing","road_type","wind_speed_bin",
+    }
+    if not need.issubset(df.columns):
+        from src.analysis import feat
+        df = feat(df)
+
+    for c in ["is_weekend", "wind_speed_bin", "is_freezing", "road_type", "has_precipitation"]:
+        if c in df.columns:
+            show(df, c)
+        else:
+            print(f"(skip) {c} — column not found")
 
     num = [
         "Severity", "is_severe", "is_night", "is_rush_hour",
         "has_precipitation", "has_bad_weather", "is_visibility_low",
         "is_weekend", "is_freezing", "has_bump", "has_crossing",
     ]
+    use_num = [c for c in num if c in df.columns]
 
-    X = pd.get_dummies(df[["road_type", "wind_speed_bin", "time_of_day"]], drop_first=True)
-    data = pd.concat([df[num], X], axis=1).astype("float32", copy=False)
-    corr = data.corr()
-    plot_corr(corr)
+    cat = [c for c in ["road_type", "wind_speed_bin"] if c in df.columns]
+    if cat:
+        X = pd.get_dummies(df[cat], drop_first=True, dtype="int8")
+    else:
+        X = pd.DataFrame(index=df.index)
 
-# Functions
-# def count_by_cities(df: pd.DataFrame, num_rows=consts.NUM_ROWS, cities=None) -> pd.DataFrame:
-#     if cities is None:
-#         df_processed = df['City'].value_counts().head(num_rows).reset_index()
-#         df_processed.columns = ['City', 'Count']
-#     else:
-#         df_processed = df[df['City'].isin(cities)].groupby('City')['City'].count().head(num_rows).sort_values(by='City', ascending=False)
-#         df_processed.columns = ['City', 'Count']
-#     return df_processed
+    data = pd.concat([df[use_num].astype("float32", copy=False), X.astype("float32", copy=False)], axis=1)
+    nuniq = data.nunique(dropna=True)
+    const_cols = nuniq[nuniq < 2].index.tolist()
+    if const_cols:
+        print("(skip) constant columns (no variation):", ", ".join(const_cols))
+        data = data.drop(columns=const_cols, errors="ignore")
+
+    if data.shape[1] == 0:
+        print("(skip) all selected columns are constant")
+        return
+
+    if data.shape[1] == 0:
+        print("(skip) nothing to correlate")
+        return None
+
+    corr = data.corr(numeric_only=True)
+    visualization.plot_corr(corr)
+    return corr
+
 
 def count_by_cities(df: pd.DataFrame, num_rows=consts.NUM_ROWS, cities=None) -> pd.DataFrame:
     if cities is None:
-        out = df['City'].value_counts().head(num_rows).reset_index()
-        out.columns = ['City', 'Count']
-        return out
+        df_processed = df['City'].value_counts().head(num_rows).reset_index()
+        df_processed.columns = ['City', 'NumOfAccidents']
     else:
-        mask = df['City'].isin(cities)
-        out = (
-            df.loc[mask]
-              .groupby('City', observed=True)
-              .size()
-              .reset_index(name='Count')
-              .sort_values('Count', ascending=False)
-              .head(num_rows)
-        )
-        return out
+        df_processed = df[df['City'].isin(cities)].groupby('City')['City'].count().head(num_rows).sort_values(by='City', ascending=False)
+        df_processed.columns = ['City', 'NumOfAccidents']
+    prepro.set_index_starting_from_one(df_processed)
+    return df_processed
 
-def feat(df):
-    df = df.copy()
 
-    if 'Start_Time' in df.columns and not np.issubdtype(df['Start_Time'].dtype, np.datetime64):
-        df['Start_Time'] = pd.to_datetime(df['Start_Time'], errors='coerce')
+def feat(df: pd.DataFrame) -> pd.DataFrame:
+    d = df.copy()
+    d["Start_Time"] = pd.to_datetime(d["Start_Time"], errors="coerce")
+    d["Severity"] = pd.to_numeric(d["Severity"], errors="coerce")
+    d = d.dropna(subset=["Start_Time","Severity"])
 
-    df["Severity"] = pd.to_numeric(df["Severity"], errors="coerce")
-    df = df.dropna(subset=["Severity"])
+    d["hour"] = d["Start_Time"].dt.hour
+    d["day_of_week"] = d["Start_Time"].dt.dayofweek
+    d["is_night"] = ((d["hour"] >= 20) | (d["hour"] <= 5)).astype(int)
+    d["is_rush_hour"] = (d["hour"].between(7,9) | d["hour"].between(16,19)).astype(int)
+    d["is_weekend"] = (d["day_of_week"] >= 5).astype(int)
 
-    df["hour"] = df["Start_Time"].dt.hour
-    df["day_of_week"] = df["Start_Time"].dt.dayofweek
-    df["is_night"] = ((df["hour"] >= 20) | (df["hour"] <= 5)).astype(int)
-    df["is_rush_hour"] = (df["hour"].between(7, 9) | df["hour"].between(16, 19)).astype(int)
-    df["is_weekend"] = (df["day_of_week"] >= 5).astype(int)
-    df["time_of_day"] = df["hour"].map(lambda h: "night" if h <= 5 else "morning" if h <= 9 else "day" if h <= 15 else "evening" if h <= 19 else "late")
+    pcol = next((c for c in d.columns if "Precipitation" in c), None)
+    d["has_precipitation"] = (pd.to_numeric(d[pcol], errors="coerce").fillna(0) > 0).astype(int) if pcol else 0
 
-    precipitation_column = next((c for c in df.columns if "Precipitation" in c), None)
-    precipitation_values = pd.to_numeric(df[precipitation_column], errors="coerce").fillna(0) if precipitation_column else pd.Series(0, index=df.index, dtype="float64")
-    df["has_precipitation"] = (precipitation_values > 0).astype(int)
+    bad_re = r"Rain|Snow|Fog|Thunder|Storm|Hail|Sleet|Blizzard"
 
-    bad_weather_regex = r"Rain|Snow|Fog|Thunder|Storm|Hail|Sleet|Blizzard"
-    weather_condition_series = df["Weather_Condition"] if "Weather_Condition" in df.columns else pd.Series("", index=df.index)
-    df["has_bad_weather"] = weather_condition_series.fillna("").str.contains(bad_weather_regex, case=False, regex=True).astype(int)
-
-    visibility_series = pd.to_numeric(df["Visibility(mi)"], errors="coerce") if "Visibility(mi)" in df.columns else pd.Series(np.nan, index=df.index)
-    df["visibility_bin"] = pd.cut(visibility_series, [-np.inf, 2, 5, np.inf], labels=["<2", "2-5", ">5"])
-    df["is_visibility_low"] = (df["visibility_bin"] == "<2").astype(int)
-
-    temperature_column = next((c for c in df.columns if "Temp" in c), None)
-    df["is_freezing"] = (pd.to_numeric(df[temperature_column], errors="coerce") < 32).astype(int) if temperature_column else 0
-
-    wind_speed_column = next((c for c in df.columns if "Wind_Speed" in c), None)
-    if wind_speed_column:
-        df["wind_speed_bin"] = pd.cut(pd.to_numeric(df[wind_speed_column], errors="coerce"), [-.1, 7, 15, 25, np.inf], labels=["0", "1", "2", "3"])
+    if "Weather_Condition" in d.columns:
+        w = d["Weather_Condition"].astype("string").fillna("")
     else:
-        df["wind_speed_bin"] = pd.Categorical(["NA"] * len(df))
+        w = pd.Series("", index=d.index, dtype="string")
 
-    df["road_type"] = (
-        df["Street"]
-          .fillna(df["Description"])
-          .str.lower()
-          .map(lambda text: (
-              "interstate" if isinstance(text, str) and re.search(r"\b(i-|interstate|fwy)\b", text)
-              else "highway" if isinstance(text, str) and re.search(r"\b(hwy|highway|us-|sr-)\b", text)
-              else "local"
-          ))
+    d["has_bad_weather"] = w.str.contains(bad_re, case=False, regex=True) \
+        .fillna(False).astype(int)
+
+    v = pd.to_numeric(d["Visibility(mi)"], errors="coerce") if "Visibility(mi)" in d.columns else pd.Series(np.nan, index=d.index)
+    d["is_visibility_low"] = (v < 2).astype(int)
+
+    tcol = next((c for c in d.columns if "Temp" in c), None)
+    d["is_freezing"] = (pd.to_numeric(d[tcol], errors="coerce") < 32).astype(int) if tcol else 0
+
+
+    wcol = next((c for c in d.columns if "Wind_Speed" in c), None)
+    if wcol:
+        d["wind_speed_bin"] = pd.cut(pd.to_numeric(d[wcol], errors="coerce"), [-.1, 7, 15, 25, np.inf], labels=["0","1","2","3"])
+    else:
+        d["wind_speed_bin"] = pd.Categorical(["NA"] * len(d))
+
+    txt = d["Street"].fillna(d.get("Description")).astype(str).str.lower()
+    d["road_type"] = txt.map(lambda s:
+        "interstate" if re.search(r"\b(i-|interstate|fwy)\b", s) else
+        ("highway" if re.search(r"\b(hwy|highway|us-|sr-)\b", s) else "local")
     )
 
-    df["is_severe"] = (df["Severity"] >= 3).astype(int)
-    bump_series = pd.to_numeric(df["Bump"], errors="coerce").fillna(0) if "Bump" in df.columns else pd.Series(0, index=df.index)
-    crossing_series = pd.to_numeric(df["Crossing"], errors="coerce").fillna(0) if "Crossing" in df.columns else pd.Series(0, index=df.index)
-    df["has_bump"] = bump_series.astype(int)
-    df["has_crossing"] = crossing_series.astype(int)
+    d["is_severe"] = (d["Severity"] >= 3).astype(int)
+    if "Bump" in d.columns:
+        d["has_bump"] = d["Bump"].astype(str).str.lower().isin(["true", "1", "yes"]).astype(int)
+    else:
+        d["has_bump"] = 0
+    if "Crossing" in d.columns:
+        d["has_crossing"] = d["Crossing"].astype(str).str.lower().isin(["true", "1", "yes"]).astype(int)
+    else:
+        d["has_crossing"] = 0
 
-    return df
+    d = object_columns_to_category(d, columns=["City", "Weather_Condition", "road_type"])
+    return d
 
 
 def corr_show(df, feature_col):
@@ -195,21 +213,17 @@ def kpi_by_year_all(df: pd.DataFrame) -> pd.DataFrame:
     return out.sort_values('year')
 
 def kpi_components_by_year(df: pd.DataFrame, scale: int = 10000) -> pd.DataFrame:
-
     g = df.copy()
     g["year"] = pd.to_datetime(g["Start_Time"], errors="coerce").dt.year
-
     severe = g.get("is_severe", pd.Series(0, index=g.index)).astype(bool)
     weekend = g.get("is_weekend", pd.Series(0, index=g.index)).astype(bool)
     precip = g.get("has_precipitation", pd.Series(0, index=g.index)).astype(bool)
     bad    = g.get("has_bad_weather", pd.Series(0, index=g.index)).astype(bool)
-
     bucket_severe = severe
     bucket_weekend = (~bucket_severe) & weekend
     bucket_precip = (~bucket_severe) & (~bucket_weekend) & precip
     bucket_bad    = (~bucket_severe) & (~bucket_weekend) & (~bucket_precip) & bad
     bucket_other  = ~(bucket_severe | bucket_weekend | bucket_precip | bucket_bad)
-
     parts = pd.DataFrame({
         "year": g["year"],
         "severe": bucket_severe.astype(int),
@@ -218,14 +232,58 @@ def kpi_components_by_year(df: pd.DataFrame, scale: int = 10000) -> pd.DataFrame
         "bad_only": bucket_bad.astype(int),
         "other": bucket_other.astype(int),
     })
-
     agg = parts.groupby("year", as_index=False).sum()
-
     totals = g.groupby("year", as_index=False).size().rename(columns={"size": "accidents"})
-
     out = agg.merge(totals, on="year", how="left")
-
     for c in ["severe", "weekend_only", "precip_only", "bad_only", "other", "accidents"]:
         out[c] = (out[c] / float(scale)).round(2)
-
     return out.sort_values("year")
+
+def count_by_cities_years(df: pd.DataFrame, num_rows=consts.NUM_ROWS, cities=None, year=2023) -> pd.DataFrame:
+    # берём год из df['year'] если есть, иначе парсим
+    if "year" in df.columns:
+        y = df["year"]
+    else:
+        y = pd.to_datetime(df["Start_Time"], errors="coerce").dt.year
+
+    tmp = pd.DataFrame({"City": df["City"], "Year": y}).dropna(subset=["City","Year"])
+    year = int(year)
+    tmp = tmp[tmp["Year"] == year]
+    if cities is not None:
+        tmp = tmp[tmp["City"].isin(cities)]
+
+    out = (tmp.groupby("City", as_index=False, observed=True)
+             .size()
+             .rename(columns={"size":"NumOfAccidents"})
+             .sort_values("NumOfAccidents", ascending=False)
+             .head(num_rows))
+    out["Year"] = str(year)
+    out = out[["City", "NumOfAccidents", "Year"]]
+    prepro.set_index_starting_from_one(out)
+    return out
+
+
+
+def city_accidents_count_by_year(df: pd.DataFrame, num_rows=consts.NUM_ROWS, city='new york') -> pd.DataFrame:
+    tmp = pd.DataFrame({
+        "City": df['City'],
+        "Year": pd.to_datetime(df['Start_Time'], errors='coerce').dt.year
+    }).dropna()
+    city = str(city).lower()
+    tmp = tmp[tmp['City'].str.lower() == city]
+    out = (tmp.groupby('Year', as_index=False)['City']
+             .size()
+             .rename(columns={'size': 'NumAccidents'}))
+    prepro.set_index_starting_from_one(out)
+    out['Year'] = out['Year'].astype(str)
+    return out
+
+
+def city_dangerous_streets(df: pd.DataFrame, city: str,  year: int, num_rows=consts.NUM_ROWS):
+    df_processed = pd.DataFrame({
+        "City": df['City'],
+        "Street": df['Street'],
+        "Year": pd.to_datetime(df['Start_Time'].dt.year)
+    })
+    df_processed = df_processed[(df['City'] == city) | (df['Street'] == year)]
+    df_processed = df.processed.groupby('')

@@ -1,11 +1,14 @@
 Available options:
 
-Areas
-1. Counter accidents by city
-2. Later
+-- Areas --
+1. Top accidents by city for 2016 - 2023
+2. Top accidents by city for certain year
+3. Count of accidents for a city, split by year
+4. Dangerous places in a city
+5. Heatmap
 
-Years
-3. Later
-4. Later
+-- Years --
+6. Later
+7. Later
 
 Other options will be added later
