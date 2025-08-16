@@ -1,0 +1,8 @@
+Available options:
+1. All metrics (table)
+2. Accidents (count)
+3. Severe share (heavy accidents)
+4. Avg Severity
+5. Weekend share
+6. Precipitation share
+7. Bad weather share
