@@ -161,7 +161,7 @@ def preset_reports_menu(df: pd.DataFrame):
         case _:
             print('\nNot an option!')
             time.sleep(1)
-            main_menu()
+            preset_reports_menu(df)
 
 
 
