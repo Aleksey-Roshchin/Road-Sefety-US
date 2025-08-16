@@ -8,28 +8,7 @@ import src.visualization as visualization
 from src.preprocessing import object_columns_to_category
 
 
-# Functions
-# def count_by_cities_(df: pd.DataFrame, num_rows=consts.NUM_ROWS, cities=None) -> pd.DataFrame:
-#     if cities is None:
-#         out = df['City'].value_counts().head(num_rows).reset_index()
-#         out.columns = ['City', 'NumOfAccidents']
-#         return out
-#     else:
-#         mask = df['City'].isin(cities)
-#         out = (
-#             df.loc[mask]
-#               .groupby('City', observed=True)
-#               .size()
-#               .reset_index(name='Count')
-#               .sort_values('Count', ascending=False)
-#               .head(num_rows)
-#         )
-#         return out
-#
-
-
 def correlation_overview(df):
-    # 0) Пустой фрейм — выходим
     if df is None or df.empty:
         print('\n[Heatmap] No data after filtering. Load more rows or disable last-year drop.')
         return None
@@ -261,54 +240,43 @@ def kpi_components_by_year(df: pd.DataFrame, scale: int = 10000) -> pd.DataFrame
     return out.sort_values("year")
 
 def count_by_cities_years(df: pd.DataFrame, num_rows=consts.NUM_ROWS, cities=None, year=2023) -> pd.DataFrame:
-    if cities is None:
-        df_processed = pd.DataFrame({
-            "City": df['City'],
-            'Year': pd.to_datetime(df['Start_Time']).dt.year
-        })
-        df_processed = df_processed[df_processed['Year'] == year]['City']
-        df_processed = df_processed.value_counts().head(num_rows).reset_index()
-        df_processed.columns = ['City', 'NumOfAccidents']
+    # берём год из df['year'] если есть, иначе парсим
+    if "year" in df.columns:
+        y = df["year"]
     else:
-        df_processed = df[df['City'].isin(cities)].groupby('City')['City'].count().head(num_rows).sort_values(by='City', ascending=False)
-        df_processed.columns = ['City', 'NumAccidents']
-    prepro.set_index_starting_from_one(df_processed)
-    df_processed['Year'] = df_processed['Year'].astype(str)     # To display the year as discret value when plot
-    return df_processed
+        y = pd.to_datetime(df["Start_Time"], errors="coerce").dt.year
 
-def count_by_cities_years(df: pd.DataFrame, num_rows=consts.NUM_ROWS, cities=None, year=2023) -> pd.DataFrame:
-    years = pd.to_datetime(df["Start_Time"], errors="coerce").dt.year
-    tmp = pd.DataFrame({"City": df["City"], "Year": years}).dropna(subset=["City", "Year"])
+    tmp = pd.DataFrame({"City": df["City"], "Year": y}).dropna(subset=["City","Year"])
     year = int(year)
     tmp = tmp[tmp["Year"] == year]
     if cities is not None:
         tmp = tmp[tmp["City"].isin(cities)]
-    out = (
-        tmp.groupby("City", as_index=False)
-           .size()
-           .rename(columns={"size": "NumOfAccidents"})
-           .sort_values("NumOfAccidents", ascending=False)
-           .head(num_rows)
-           .reset_index(drop=True)
-    )
-    out["Year"] = year
+
+    out = (tmp.groupby("City", as_index=False, observed=True)
+             .size()
+             .rename(columns={"size":"NumOfAccidents"})
+             .sort_values("NumOfAccidents", ascending=False)
+             .head(num_rows))
+    out["Year"] = str(year)
     out = out[["City", "NumOfAccidents", "Year"]]
     prepro.set_index_starting_from_one(out)
     return out
 
 
-def city_accidents_count_by_year(df: pd.DataFrame, num_rows=consts.NUM_ROWS, city='new york') -> pd.DataFrame:
-    df_processed = pd.DataFrame({
-        "City": df['City'],
-        'Year': pd.to_datetime(df['Start_Time']).dt.year
-    })
-    df_processed = df_processed[df['City'] == city]
-    df_processed = df_processed.groupby('Year')['City'].count().reset_index()
-    df_processed.columns = ['Year', 'NumAccidents']
-    prepro.set_index_starting_from_one(df_processed)
-    df_processed['Year'] = df_processed['Year'].astype(str)     # To display the year as discret value when plot
-    return df_processed
 
+def city_accidents_count_by_year(df: pd.DataFrame, num_rows=consts.NUM_ROWS, city='new york') -> pd.DataFrame:
+    tmp = pd.DataFrame({
+        "City": df['City'],
+        "Year": pd.to_datetime(df['Start_Time'], errors='coerce').dt.year
+    }).dropna()
+    city = str(city).lower()
+    tmp = tmp[tmp['City'].str.lower() == city]
+    out = (tmp.groupby('Year', as_index=False)['City']
+             .size()
+             .rename(columns={'size': 'NumAccidents'}))
+    prepro.set_index_starting_from_one(out)
+    out['Year'] = out['Year'].astype(str)
+    return out
 
 
 def city_dangerous_streets(df: pd.DataFrame, city: str,  year: int, num_rows=consts.NUM_ROWS):

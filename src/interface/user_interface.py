@@ -1,12 +1,13 @@
 import pandas as pd
 import os, time, shutil
-from pathlib import Path
-from src.constants import SRC_PATH, USER_INPUT_FORM, EXIT_COMMANDS
+from src.constants import SRC_PATH, USER_INPUT_FORM, EXIT_COMMANDS, CSV
 import src.visualization as visualization
 import src.analysis as analysis
 import sys
+from src.data_loader import ld
+from src.preprocessing import base_preprocess_datetime
 
-# Consts
+
 MENUS_PATH = SRC_PATH + r'/interface/menus'
 PROGRAM_LOGO = MENUS_PATH + r"/program_logo.txt"
 MAIN_MENU = MENUS_PATH + r'/main_menu.txt'
@@ -15,7 +16,6 @@ PRESET_REPORTS_MENU = MENUS_PATH + r'/preset_reports_menu.txt'
 CUSTOM_REPORTS_MENU = MENUS_PATH + r'/custom_reports_menu.txt'
 PRESET_REPORTS_LOGO = PRESET_REPORTS_MENU.rstrip('.txt') + '_logo.txt'
 
-# Utils
 def clear():
     os.system('cls' if os.name == 'nt' else 'clear')
 
@@ -30,15 +30,12 @@ def enable_utf8():
         os.system('chcp 65001 > nul')
 
 
-# def press_to_continue(df=None):
-#     while True:
-#         print("\nWhat do you want to do next?")
-#         print("1. Return to main menu")
-#         print("2. Exit program")
-#         choice = input("Your choice (1-2): ").strip().lower()
-
-def press_to_continue(next_action, df: pd.DataFrame) -> None:
-    input('\nPress Enter to continue')
+def press_to_continue(next_action, df):
+    try:
+        input('\nPress Enter to continue')
+    except (KeyboardInterrupt, EOFError):
+        print('\nExit requested')
+        return
     next_action(df)
 
 def exit_program(user_input: str) -> None:
@@ -97,13 +94,7 @@ def ask_for_visualize(df, plot_title=None, chart_type='bar') -> None:
         user_input = checked_input('\nDo you want to plot this table?\n\n1. Yes\n2. No').lower()
     match user_input:
         case "1" | "y" | "yes":
-            # ✅ брать первые две колонки, исключая служебный 'Year'
-            cols = [c for c in df.columns if c.lower() != "year"]
-            if len(cols) < 2:
-                print("\n[Plot] Not enough columns to plot.")
-                return
-            x_col, y_col = cols[:2]   # было: x_col, y_col = df.columns
-
+            x_col, y_col = list(df.columns)[:2]
             match chart_type:
                 case 'bar':
                     visualization.bar_plot(df, x_col, y_col, plot_title=plot_title)
@@ -159,21 +150,24 @@ def preset_reports_menu(df: pd.DataFrame):
             df_count_by_cities = analysis.count_by_cities(df)
             print(df_count_by_cities)
             ask_for_visualize(df_count_by_cities, plot_title='Top accidents by city for 2016 - 2023')
-            press_to_continue(preset_reports_menu,df)
+            press_to_continue(main_menu,df)
+            return
         case "2":
             user_year = checked_input('\nEnter the year')
             user_year = check_year(user_year)
             df_count_by_cities = analysis.count_by_cities_years(df, year=user_year)
             print(df_count_by_cities)
             ask_for_visualize(df_count_by_cities, plot_title=f'Top accidets by city for {user_year} year')
-            press_to_continue(preset_reports_menu,df)
+            press_to_continue(main_menu,df)
+            return
         case "3":
             user_city = checked_input('\nEnter the city name')
             user_city = check_city(df, user_city)
             df_city_accidents_count_by_year = analysis.city_accidents_count_by_year(df, city=user_city)
             print(df_city_accidents_count_by_year)
             ask_for_visualize(df_city_accidents_count_by_year, chart_type='line', plot_title=f'Count of accidents for the {user_city}, split by year')
-            press_to_continue(preset_reports_menu, df)
+            press_to_continue(main_menu, df)
+            return
         case "4":
             user_city = checked_input('\nEnter the city name')
             user_city = check_city(df, user_city)
@@ -182,10 +176,12 @@ def preset_reports_menu(df: pd.DataFrame):
             df_city_dangerous_streets = analysis.city_dangerous_streets(df, city=user_city, year=user_year)
             print(df_city_dangerous_streets)
             ask_for_visualize(df_city_dangerous_streets)
-            press_to_continue(preset_reports_menu, df)
+            press_to_continue(main_menu, df)
+            return
         case "5":
             analysis.correlation_overview(df)
-            press_to_continue(preset_reports_menu,df)
+            press_to_continue(main_menu,df)
+            return
         case _:
             print('\nNot an option!')
             time.sleep(1)
@@ -199,7 +195,8 @@ def custom_report_menu(df: pd.DataFrame):
     match user_input:
         case "1":
             kpi_by_year_menu(df)
-            press_to_continue(df)
+            press_to_continue(custom_report_menu, df)
+            return
         case _:
             print('\nNot an option!')
             time.sleep(1)
@@ -209,6 +206,21 @@ def custom_report_menu(df: pd.DataFrame):
 
 
 def kpi_by_year_menu(df: pd.DataFrame):
+
+    df_full = ld(CSV)
+    df_full = base_preprocess_datetime(df_full)
+    df_full = analysis.feat(df_full)
+    df = df_full
+
+    # need = {
+    #     "is_severe", "is_weekend", "is_night", "is_rush_hour",
+    #     "has_precipitation", "has_bad_weather", "is_visibility_low",
+    #     "is_freezing", "has_bump", "has_crossing", "road_type", "wind_speed_bin",
+    # }
+    # if not need.issubset(df.columns):
+    #     df = analysis.feat(df)
+
+
     print("\nKPI by year")
     print("1. All metrics (table)")
     print("2. Accidents (count)")
@@ -228,7 +240,7 @@ def kpi_by_year_menu(df: pd.DataFrame):
         "7": "bad_weather_share",
     }
 
-    df_filtered = _choose_period_df(df)
+    df_filtered = choose_period_df(df)
     if df_filtered.empty:
         print("\n[Notice] No data left after filtering. Showing all years.")
         df_filtered = df
@@ -265,7 +277,7 @@ def kpi_by_year_menu(df: pd.DataFrame):
     press_to_continue(main_menu,df)
 
 
-def _start_from_input(s: str):
+def start_from_input(s: str):
     s = (s or "").strip()
     if not s:
         return None
@@ -279,7 +291,7 @@ def _start_from_input(s: str):
         return None
 
 
-def _end_exclusive_from_input(s: str):
+def end_exclusive_from_input(s: str):
     s = (s or "").strip()
     if not s:
         return None
@@ -298,7 +310,7 @@ def _end_exclusive_from_input(s: str):
         return None
 
 
-def _choose_period_df(df: pd.DataFrame) -> pd.DataFrame:
+def choose_period_df(df: pd.DataFrame) -> pd.DataFrame:
     print("\nWhich period do you want to show?")
     print("1. All years")
     print("2. Specific year")
@@ -324,8 +336,8 @@ def _choose_period_df(df: pd.DataFrame) -> pd.DataFrame:
             print("\nExamples of valid input: 2020  |  2020-05  |  2020-05-10")
             s_from = checked_input("From date: ").strip()
             s_to = checked_input("To date: ").strip()
-            dt_from = _start_from_input(s_from)
-            dt_to_excl = _end_exclusive_from_input(s_to)
+            dt_from = start_from_input(s_from)
+            dt_to_excl = end_exclusive_from_input(s_to)
             if (dt_from is not None) and (dt_to_excl is not None) and (dt_from < dt_to_excl):
                 tmp = pd.to_datetime(df["Start_Time"], errors="coerce") if not pd.api.types.is_datetime64_any_dtype(
                     df["Start_Time"]) else df["Start_Time"]
