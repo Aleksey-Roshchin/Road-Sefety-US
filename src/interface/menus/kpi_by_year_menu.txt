@@ -1,4 +1,5 @@
 Available options:
+
 1. All metrics (table)
 2. Accidents (count)
 3. Severe share (heavy accidents)

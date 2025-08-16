@@ -4,13 +4,13 @@ from pathlib import Path
 # File paths
 ROOT_PATH = str(Path(__file__).resolve().parent.parent)
 SRC_PATH = str(Path(__file__).resolve().parent)
-# CSV = ROOT_PATH + r'/data/raw/US_Accidents_March23.csv'
-CSV = r"D:\dataset\US_Accidents_March23.csv"
-CSV_TEST = r'data/processed/first_1000_rows.csv'
-CSV = CSV_TEST
+CSV = ROOT_PATH + r'/data/raw/US_Accidents_March23.csv'
+# CSV = r"D:\dataset\US_Accidents_March23.csv"
+# CSV_TEST = r'data/processed/first_1000_rows.csv'
+# CSV = CSV_TEST
 
 # Other consts
-NUM_ROWS = 5    # Uses for display a certain quantity of rows
+NUM_ROWS = 5    # Uses for display a certain quantit    y of rows
 EXIT_COMMANDS = (
     "break",
     "bye",

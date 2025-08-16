@@ -18,6 +18,12 @@ PRESET_REPORTS_LOGO = PRESET_REPORTS_MENU.rstrip('.txt') + '_logo.txt'
 KPI_BY_YEAR_MENU = MENUS_PATH + r'/kpi_by_year_menu.txt'
 KPI_BY_YEAR_LOGO = KPI_BY_YEAR_MENU.rstrip('.txt') + '_logo.txt'
 
+MENU_HIERACHY = {
+    PRESET_REPORTS_MENU: MAIN_MENU,
+    CUSTOM_REPORTS_MENU: MAIN_MENU,
+    KPI_BY_YEAR_MENU: CUSTOM_REPORTS_MENU
+}
+
 # Utils
 
 def clear():
@@ -83,9 +89,11 @@ def print_logo_centered(filepath):
             print()
         time.sleep(0.2)
 
-def print_menu(filepath):
+def print_menu(filepath, parent_menu=False):
     filepath_check(filepath)
     clear()
+    if parent_menu:
+        print_logo(MENU_HIERACHY[filepath].rstrip('.txt') + '_logo.txt')
     print_logo(filepath.rstrip('.txt') + '_logo.txt')
     with open(filepath, 'r') as f:
         print(f.read())
@@ -207,7 +215,6 @@ def custom_report_menu(df: pd.DataFrame):
             custom_report_menu(df)
 
 
-
 def kpi_by_year_menu(df: pd.DataFrame):
 
     df_full = ld(CSV)
@@ -223,15 +230,7 @@ def kpi_by_year_menu(df: pd.DataFrame):
     # if not need.issubset(df.columns):
     #     df = analysis.feat(df)
 
-
-    print("\nKPI by year")
-    print("1. All metrics (table)")
-    print("2. Accidents (count)")
-    print("3. Severe share (heavy accidents)")
-    print("4. Avg Severity")
-    print("5. Weekend share")
-    print("6. Precipitation share")
-    print("7. Bad weather share")
+    print_menu(KPI_BY_YEAR_MENU, parent_menu=True)
     choice = checked_input("\nChoose KPI (1-7): ").strip()
 
     metric_map = {
