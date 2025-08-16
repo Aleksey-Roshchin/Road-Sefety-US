@@ -13,6 +13,8 @@ MAIN_MENU = MENUS_PATH + r'/main_menu.txt'
 MAIN_MENU_LOGO = MAIN_MENU.rstrip('.txt') + '_logo.txt'
 PRESET_REPORTS_MENU = MENUS_PATH + r'/preset_reports_menu.txt'
 PRESET_REPORTS_LOGO = PRESET_REPORTS_MENU.rstrip('.txt') + '_logo.txt'
+KPI_BY_YEAR_MENU = MENUS_PATH + r'/kpi_by_year_menu.txt'
+KPI_BY_YEAR_LOGO = KPI_BY_YEAR_MENU.rstrip('.txt') + '_logo.txt'
 
 
 # Utils
@@ -164,14 +166,7 @@ def preset_reports_menu(df: pd.DataFrame):
 
 
 def kpi_by_year_menu(df: pd.DataFrame):
-    print("\nKPI by year")
-    print("1. All metrics (table)")
-    print("2. Accidents (count)")
-    print("3. Severe share (heavy accidents)")
-    print("4. Avg Severity")
-    print("5. Weekend share")
-    print("6. Precipitation share")
-    print("7. Bad weather share")
+    print_menu(KPI_BY_YEAR_MENU)
     choice = checked_input("\nChoose KPI (1-7): ").strip()
 
     metric_map = {
