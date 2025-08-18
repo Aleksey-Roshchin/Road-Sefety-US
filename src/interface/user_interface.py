@@ -6,6 +6,7 @@ import src.analysis as analysis
 import sys
 from src.data_loader import ld
 from src.preprocessing import base_preprocess_datetime
+from tabulate import tabulate
 
 
 MENUS_PATH = SRC_PATH + r'/interface/menus'
@@ -116,13 +117,13 @@ def ask_for_visualize(df, plot_title=None, chart_type='bar') -> None:
             pass
 
 
-def check_year(year: str) -> pd.Timestamp:
+def check_year(year: str) -> int:
     valid_years = [str(y) for y in range(2016, 2024)]
     min_year = min(valid_years)
     max_year = max(valid_years)
     while year not in valid_years:
         year = checked_input(f'Not an option! Please, choose the year from {min_year} to {max_year}')
-    return pd.to_datetime(year).year
+    return int(year)
 
 
 def check_city(df: pd.DataFrame, city: str) -> str:
@@ -160,7 +161,7 @@ def preset_reports_menu(df: pd.DataFrame):
     match user_input:
         case "1":
             df_count_by_cities = analysis.count_by_cities(df)
-            print(df_count_by_cities)
+            print(tabulate(df_count_by_cities, headers='keys', tablefmt='pretty'))
             ask_for_visualize(df_count_by_cities, plot_title='Top accidents by city for 2016 - 2023')
             press_to_continue(main_menu,df)
             return
@@ -168,7 +169,7 @@ def preset_reports_menu(df: pd.DataFrame):
             user_year = checked_input('\nEnter the year')
             user_year = check_year(user_year)
             df_count_by_cities = analysis.count_by_cities_years(df, year=user_year)
-            print(df_count_by_cities)
+            print(tabulate(df_count_by_cities, headers='keys', tablefmt='pretty'))
             ask_for_visualize(df_count_by_cities, plot_title=f'Top accidets by city for {user_year} year')
             press_to_continue(main_menu,df)
             return
@@ -176,7 +177,7 @@ def preset_reports_menu(df: pd.DataFrame):
             user_city = checked_input('\nEnter the city name')
             user_city = check_city(df, user_city)
             df_city_accidents_count_by_year = analysis.city_accidents_count_by_year(df, city=user_city)
-            print(df_city_accidents_count_by_year)
+            print(tabulate(df_city_accidents_count_by_year, headers='keys', tablefmt='pretty'))
             ask_for_visualize(df_city_accidents_count_by_year, chart_type='line', plot_title=f'Count of accidents for the {user_city}, split by year')
             press_to_continue(main_menu, df)
             return
@@ -185,8 +186,9 @@ def preset_reports_menu(df: pd.DataFrame):
             user_city = check_city(df, user_city)
             user_year = checked_input('\nEnter the year')
             user_year = check_year(user_year)
-            df_city_dangerous_streets = analysis.city_dangerous_streets(df, city=user_city, year=user_year)
-            print(df_city_dangerous_streets)
+            user_num_rows = int(checked_input('\nHow many top results would you like to display?'))
+            df_city_dangerous_streets = analysis.city_dangerous_streets(df, city=user_city, year=user_year, num_rows=user_num_rows)
+            print(tabulate(df_city_dangerous_streets, headers='keys', tablefmt='pretty'))
             ask_for_visualize(df_city_dangerous_streets)
             press_to_continue(main_menu, df)
             return

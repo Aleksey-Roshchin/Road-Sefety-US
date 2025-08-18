@@ -14,8 +14,9 @@ if os.name == 'nt':
     os.system('chcp 65001 > nul')
 
 
-# df_original = pd.read_csv('data/processed/first_1000_rows.csv')
+df_original = pd.read_csv('data/processed/first_1000_rows.csv')
 # df_processed = prepro.object_columns_to_category(df_original, columns=['City'])
+df_processed = prepro.parse_dates(df_original)
 
 
 def load_full() -> pd.DataFrame:
@@ -35,8 +36,8 @@ def main(df: pd.DataFrame):
 
 if __name__ == "__main__":
     try:
-        # df = load_first_1000()
-        df = load_full()
+        df = df_original
+        #df = load_full()
         main(df)
     except (KeyboardInterrupt, EOFError):
         print('\nBye!')

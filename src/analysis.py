@@ -279,11 +279,18 @@ def city_accidents_count_by_year(df: pd.DataFrame, num_rows=consts.NUM_ROWS, cit
     return out
 
 
-def city_dangerous_streets(df: pd.DataFrame, city: str,  year: int, num_rows=consts.NUM_ROWS):
+def city_dangerous_streets(df: pd.DataFrame, city: str,  year: int, num_rows=consts.NUM_ROWS) -> pd.DataFrame:
+
     df_processed = pd.DataFrame({
-        "City": df['City'],
+        "City": df['City'].astype(str),
         "Street": df['Street'],
-        "Year": pd.to_datetime(df['Start_Time'].dt.year)
+        "Year": df['Start_Time'].dt.year
     })
-    df_processed = df_processed[(df['City'] == city) | (df['Street'] == year)]
-    df_processed = df.processed.groupby('')
+    df_processed = df_processed[(df_processed['City'].str.lower() == city) & (df_processed['Year'] == year)]    # Filtering
+    df_processed = df_processed.groupby('Street').size().reset_index(name='Accidents')      # Grouping
+    df_processed = df_processed.sort_values(by='Accidents', ascending=False)    # Sorting
+    df_processed = df_processed.head(num_rows).reset_index(drop=True)     # Leave only certain number of top rows
+    prepro.set_index_starting_from_one(df_processed)
+
+    return df_processed
+    
