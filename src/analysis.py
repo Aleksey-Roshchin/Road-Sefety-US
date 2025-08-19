@@ -349,7 +349,7 @@ def city_dangerous_streets(df: pd.DataFrame, city: str, year: int, num_rows=cons
     prepro.set_index_starting_from_one(out)
     return out
 
-def chi2_is_severe_vs_weekend(df: pd.DataFrame, alpha: float = 0.05) -> None:
+def пeekend(df: pd.DataFrame, alpha: float = 0.05) -> None:
     """Super-simple χ² test: is_severe (Severity>=3) vs is_weekend (Sat/Sun).
     Prints observed/expected tables and conclusion. Requires scipy."""
     import pandas as pd
