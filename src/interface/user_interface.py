@@ -257,9 +257,8 @@ def choose_period_df(df: pd.DataFrame) -> pd.DataFrame:
     print("\nWhich period do you want to show?")
     print("1. All years")
     print("2. Specific year")
-    print("3. Specific month")
-    print("4. Specific date range")
-    choice = checked_input("\nYour choice (1-4): ").strip()
+    print("3. Specific date range")
+    choice = checked_input("\nYour choice (1-3): ").strip()
 
     if choice == "1":
         return df
@@ -276,17 +275,6 @@ def choose_period_df(df: pd.DataFrame) -> pd.DataFrame:
         return df
 
     if choice == "3":
-        m = checked_input("Enter month number (1-12): ").strip()
-        if m.isdigit():
-            m_int = int(m)
-            if 1 <= m_int <= 12:
-                tmp = (df["Start_Time"] if pd.api.types.is_datetime64_any_dtype(df["Start_Time"])
-                       else pd.to_datetime(df["Start_Time"], errors="coerce"))
-                return df[tmp.dt.month == m_int]
-        print("Invalid month. Showing all years.")
-        return df
-
-    if choice == "4":
         for _ in range(2):
             print("\nExamples of valid input: 2020  |  2020-05  |  2020-05-10")
             s_from = checked_input("From date: ").strip()
@@ -314,7 +302,8 @@ def choose_kpi() -> str:
     print("5. Weekend share (%)")
     print("6. Precipitation share (%)")
     print("7. Bad weather share (%)")
-    choice = checked_input("\nChoose KPI (1-7): ").strip()
+    print("8. Accidents by month")
+    choice = checked_input("\nChoose KPI (1-8): ").strip()
     return {
         "1": "__stacked__",
         "2": "accidents",
@@ -323,6 +312,7 @@ def choose_kpi() -> str:
         "5": "weekend_share",
         "6": "precip_share",
         "7": "bad_weather_share",
+        "8": "accidents_by_month",
     }.get(choice, "accidents")
 
 # ========= KPI menu (thin UI) =========
@@ -376,6 +366,12 @@ def kpi_by_year_menu(df: pd.DataFrame) -> pd.DataFrame:
         )
         print(pretty[["year", "accidents"]].rename(columns={"accidents": "Accidents (per 10k)"}))
         return d  # возвращаем df с фичами наверх
+
+    if metric == "accidents_by_month":
+        df_month = analysis.accidents_by_month(d_filtered)
+        print(df_month)
+        ask_for_visualize(df_month)
+        return d
 
     df_kpi = analysis.kpi_by_year(d_filtered, metric)
     print(df_kpi)

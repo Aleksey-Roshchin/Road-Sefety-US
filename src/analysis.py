@@ -287,6 +287,19 @@ def kpi_components_by_year(df: pd.DataFrame, scale: int = 10000) -> pd.DataFrame
         out[c] = (out[c] / float(scale)).round(2)
     return out.sort_values("year")
 
+
+def accidents_by_month(df: pd.DataFrame) -> pd.DataFrame:
+    """Return accident counts grouped by month (1-12)."""
+    months = pd.to_datetime(df["Start_Time"], errors="coerce").dt.month
+    out = (df.assign(month=months)
+             .groupby("month")
+             .size()
+             .reset_index(name="accidents")
+             .dropna()
+             .sort_values("month"))
+    out["month"] = out["month"].astype(int)
+    return out
+
 def count_by_cities_years(df: pd.DataFrame, num_rows=consts.NUM_ROWS, cities=None, year=2023) -> pd.DataFrame:
     if "year" in df.columns:
         y = df["year"]
