@@ -1,11 +1,9 @@
+import os, time, shutil, sys
 import pandas as pd
-import os, time, shutil
-from src.constants import SRC_PATH, USER_INPUT_FORM, EXIT_COMMANDS, CSV
+from src.constants import SRC_PATH, USER_INPUT_FORM, EXIT_COMMANDS
 import src.visualization as visualization
 import src.analysis as analysis
-import sys
-from src.data_loader import ld
-from src.preprocessing import base_preprocess_datetime
+import src.stats as stats
 
 
 MENUS_PATH = SRC_PATH + r'/interface/menus'
@@ -24,11 +22,10 @@ MENU_HIERACHY = {
     KPI_BY_YEAR_MENU: CUSTOM_REPORTS_MENU
 }
 
-# Utils
+# ========= Utils =========
 
 def clear():
     os.system('cls' if os.name == 'nt' else 'clear')
-
 
 def enable_utf8():
     try:
@@ -38,7 +35,6 @@ def enable_utf8():
         pass
     if os.name == 'nt':
         os.system('chcp 65001 > nul')
-
 
 def press_to_continue(next_action, df):
     try:
@@ -61,7 +57,6 @@ def checked_input(message='') -> str:
     exit_program(user_input)
     return user_input
 
-
 def print_centered(text: str) -> None:
     width = shutil.get_terminal_size().columns
     padding = (width - len(text)) // 2
@@ -69,7 +64,7 @@ def print_centered(text: str) -> None:
 
 def filepath_check(filepath):
     try:
-        with open(filepath, encoding='utf-8') as f:
+        with open(filepath, encoding='utf-8') as _:
             return None
     except FileNotFoundError:
         print(f'File {filepath} not found.\nPlease check the file name.')
@@ -85,7 +80,7 @@ def print_logo_centered(filepath):
     with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
         for row in f.read().splitlines():
             print_centered(row)
-            time.sleep(0.1)
+            time.sleep(0.02)
             print()
         time.sleep(0.2)
 
@@ -115,7 +110,6 @@ def ask_for_visualize(df, plot_title=None, chart_type='bar') -> None:
         case '2' | 'no' | 'n':
             pass
 
-
 def check_year(year: str) -> pd.Timestamp:
     valid_years = [str(y) for y in range(2016, 2024)]
     min_year = min(valid_years)
@@ -124,7 +118,6 @@ def check_year(year: str) -> pd.Timestamp:
         year = checked_input(f'Not an option! Please, choose the year from {min_year} to {max_year}')
     return pd.to_datetime(year).year
 
-
 def check_city(df: pd.DataFrame, city: str) -> str:
     valid_cities = df['City'].str.lower().unique()
     city = city.lower()
@@ -132,7 +125,7 @@ def check_city(df: pd.DataFrame, city: str) -> str:
         city = checked_input(f'The data base has no this city. Please, check the city name.')
     return city
 
-# Menus
+# ========= Main Menus =========
 
 def main_menu(df):
     print_menu(MAIN_MENU)
@@ -144,9 +137,14 @@ def main_menu(df):
         case "2":
             custom_report_menu(df)
         case "3":
-            pass
+            stats.chi2_bulk_severe_vs_common_factors(df)
+            press_to_continue(main_menu, df)
+            return
         case "4":
-            pass
+            stats.global_influence_scan(df)
+            press_to_continue(main_menu, df)
+            return
+
         case _:
             print('\nNot an option!')
             time.sleep(1)
@@ -162,7 +160,7 @@ def preset_reports_menu(df: pd.DataFrame):
             df_count_by_cities = analysis.count_by_cities(df)
             print(df_count_by_cities)
             ask_for_visualize(df_count_by_cities, plot_title='Top accidents by city for 2016 - 2023')
-            press_to_continue(main_menu,df)
+            press_to_continue(main_menu, df)
             return
         case "2":
             user_year = checked_input('\nEnter the year')
@@ -170,14 +168,15 @@ def preset_reports_menu(df: pd.DataFrame):
             df_count_by_cities = analysis.count_by_cities_years(df, year=user_year)
             print(df_count_by_cities)
             ask_for_visualize(df_count_by_cities, plot_title=f'Top accidets by city for {user_year} year')
-            press_to_continue(main_menu,df)
+            press_to_continue(main_menu, df)
             return
         case "3":
             user_city = checked_input('\nEnter the city name')
             user_city = check_city(df, user_city)
             df_city_accidents_count_by_year = analysis.city_accidents_count_by_year(df, city=user_city)
             print(df_city_accidents_count_by_year)
-            ask_for_visualize(df_city_accidents_count_by_year, chart_type='line', plot_title=f'Count of accidents for the {user_city}, split by year')
+            ask_for_visualize(df_city_accidents_count_by_year, chart_type='line',
+                              plot_title=f'Count of accidents for the {user_city}, split by year')
             press_to_continue(main_menu, df)
             return
         case "4":
@@ -192,7 +191,7 @@ def preset_reports_menu(df: pd.DataFrame):
             return
         case "5":
             analysis.correlation_overview(df)
-            press_to_continue(main_menu,df)
+            press_to_continue(main_menu, df)
             return
         case _:
             print('\nNot an option!')
@@ -206,7 +205,17 @@ def custom_report_menu(df: pd.DataFrame):
     exit_program(user_input)
     match user_input:
         case "1":
-            kpi_by_year_menu(df)
+            df = kpi_by_year_menu(df)
+            press_to_continue(custom_report_menu, df)
+            return
+        case "2":
+            print("\nStat test: Chi-square (is_severe × is_weekend)")
+            df_period = choose_period_df(df)        # сначала период
+            if df_period.empty:
+                print("\n[Notice] No data left after filtering. Showing all years.")
+                df_period = df
+            import src.analysis as analysis
+            analysis.chi2_is_severe_vs_weekend(df_period)   # запускаем тест
             press_to_continue(custom_report_menu, df)
             return
         case _:
@@ -215,69 +224,7 @@ def custom_report_menu(df: pd.DataFrame):
             custom_report_menu(df)
 
 
-def kpi_by_year_menu(df: pd.DataFrame):
-
-    df_full = ld(CSV)
-    df_full = base_preprocess_datetime(df_full)
-    df_full = analysis.feat(df_full)
-    df = df_full
-
-    # need = {
-    #     "is_severe", "is_weekend", "is_night", "is_rush_hour",
-    #     "has_precipitation", "has_bad_weather", "is_visibility_low",
-    #     "is_freezing", "has_bump", "has_crossing", "road_type", "wind_speed_bin",
-    # }
-    # if not need.issubset(df.columns):
-    #     df = analysis.feat(df)
-
-    print_menu(KPI_BY_YEAR_MENU, parent_menu=True)
-    choice = checked_input("\nChoose KPI (1-7): ").strip()
-
-    metric_map = {
-        "2": "accidents",
-        "3": "severe_share",
-        "4": "avg_severity",
-        "5": "weekend_share",
-        "6": "precip_share",
-        "7": "bad_weather_share",
-    }
-
-    df_filtered = choose_period_df(df)
-    if df_filtered.empty:
-        print("\n[Notice] No data left after filtering. Showing all years.")
-        df_filtered = df
-
-    if choice == "1":
-        df_stack = analysis.kpi_components_by_year(df_filtered, scale=10000)
-        pretty = df_stack.rename(columns={
-            "severe": "Severe",
-            "weekend_only": "Weekend only",
-            "precip_only": "Precip only",
-            "bad_only": "Bad weather only",
-            "other": "Other",
-        })
-
-        visualization.stacked_components_bar(
-            pretty,
-            x_col="year",
-            stack_cols=("Severe", "Weekend only", "Precip only", "Bad weather only", "Other"),
-            title="Accidents by year (stacked components, per 10k)",
-            ylabel="Accidents (per 10k)"
-        )
-
-        print(pretty[["year", "accidents"]].rename(columns={"accidents": "Accidents (per 10k)"}))
-
-        press_to_continue(main_menu,df)
-        return
-
-    metric = metric_map.get(choice, "accidents")
-    df_kpi = analysis.kpi_by_year(df_filtered, metric)
-    print(df_kpi)
-    if len(df_kpi.columns) == 2:
-        ask_for_visualize(df_kpi)
-
-    press_to_continue(main_menu,df)
-
+# ========= KPI helpers (period & KPI choice) =========
 
 def start_from_input(s: str):
     s = (s or "").strip()
@@ -291,7 +238,6 @@ def start_from_input(s: str):
         return pd.to_datetime(s, errors="coerce")
     except Exception:
         return None
-
 
 def end_exclusive_from_input(s: str):
     s = (s or "").strip()
@@ -310,7 +256,6 @@ def end_exclusive_from_input(s: str):
         return base + pd.DateOffset(days=1)
     except Exception:
         return None
-
 
 def choose_period_df(df: pd.DataFrame) -> pd.DataFrame:
     print("\nWhich period do you want to show?")
@@ -341,8 +286,8 @@ def choose_period_df(df: pd.DataFrame) -> pd.DataFrame:
             dt_from = start_from_input(s_from)
             dt_to_excl = end_exclusive_from_input(s_to)
             if (dt_from is not None) and (dt_to_excl is not None) and (dt_from < dt_to_excl):
-                tmp = pd.to_datetime(df["Start_Time"], errors="coerce") if not pd.api.types.is_datetime64_any_dtype(
-                    df["Start_Time"]) else df["Start_Time"]
+                tmp = (df["Start_Time"] if pd.api.types.is_datetime64_any_dtype(df["Start_Time"])
+                       else pd.to_datetime(df["Start_Time"], errors="coerce"))
                 mask = (tmp >= dt_from) & (tmp < dt_to_excl)
                 return df[mask]
             print("Could not parse the dates — please try again.")
@@ -351,6 +296,85 @@ def choose_period_df(df: pd.DataFrame) -> pd.DataFrame:
 
     print("No such option. Showing all years.")
     return df
+
+def choose_kpi() -> str:
+    print("\nKPI by year")
+    print("1. All metrics (stacked, per 10k)")
+    print("2. Accidents (count)")
+    print("3. Severe share (%)")
+    print("4. Avg Severity")
+    print("5. Weekend share (%)")
+    print("6. Precipitation share (%)")
+    print("7. Bad weather share (%)")
+    choice = checked_input("\nChoose KPI (1-7): ").strip()
+    return {
+        "1": "__stacked__",
+        "2": "accidents",
+        "3": "severe_share",
+        "4": "avg_severity",
+        "5": "weekend_share",
+        "6": "precip_share",
+        "7": "bad_weather_share",
+    }.get(choice, "accidents")
+
+# ========= KPI menu (thin UI) =========
+def kpi_by_year_menu(df: pd.DataFrame) -> pd.DataFrame:
+    # 1) сначала выбор KPI
+    metric = choose_kpi()
+
+    # 2) потом выбор периода
+    d_period = choose_period_df(df)
+    if d_period.empty:
+        print("\n[Notice] No data left after filtering. Showing all years.")
+        d_period = df
+
+    # 3) гарантируем фичи (на полном df), чтобы последующие вызовы были быстрыми
+    d = analysis.ensure_features(df)
+
+    # 4) применим период уже к обогащенному датасету
+    if "Start_Time" in d.columns and pd.api.types.is_datetime64_any_dtype(d["Start_Time"]):
+        times = d["Start_Time"]
+    else:
+        times = pd.to_datetime(d["Start_Time"], errors="coerce")
+
+    # пересчитаем фильтр периода относительно 'd'
+    if d_period is not df:
+        # получим границы по d_period
+        _t = pd.to_datetime(df["Start_Time"], errors="coerce")
+        mask_src = df.index[_t.isin(pd.to_datetime(d_period["Start_Time"], errors="coerce"))]
+        mask = d.index.isin(mask_src)
+        d_filtered = d.loc[mask]
+    else:
+        d_filtered = d
+
+    # 5) отрисовка/таблица
+    if metric == "__stacked__":
+        pretty = (
+            analysis.kpi_components_by_year(d_filtered, scale=10000)
+            .rename(columns={
+                "severe": "Severe",
+                "weekend_only": "Weekend only",
+                "precip_only": "Precip only",
+                "bad_only": "Bad weather only",
+                "other": "Other",
+            })
+        )
+        visualization.stacked_components_bar(
+            pretty,
+            x_col="year",
+            stack_cols=("Severe", "Weekend only", "Precip only", "Bad weather only", "Other"),
+            title="Accidents by year (stacked components, per 10k)",
+            ylabel="Accidents (per 10k)"
+        )
+        print(pretty[["year", "accidents"]].rename(columns={"accidents": "Accidents (per 10k)"}))
+        return d  # возвращаем df с фичами наверх
+
+    df_kpi = analysis.kpi_by_year(d_filtered, metric)
+    print(df_kpi)
+    if len(df_kpi.columns) == 2:
+        ask_for_visualize(df_kpi)
+
+    return d  # возвращаем df с фичами наверх
 
 
 

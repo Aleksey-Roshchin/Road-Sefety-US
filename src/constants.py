@@ -9,6 +9,15 @@ CSV = ROOT_PATH + r'/data/raw/US_Accidents_March23.csv'
 # CSV_TEST = r'data/processed/first_1000_rows.csv'
 # CSV = CSV_TEST
 
+
+PARENT_PATH = str(Path(ROOT_PATH).parent)
+
+EXTERNAL_RAW_DIR       = os.path.join(PARENT_PATH, "dataset")
+EXTERNAL_RAW_CSV       = os.path.join(EXTERNAL_RAW_DIR, "US_Accidents_March23.csv")
+
+EXTERNAL_PROCESSED_DIR = os.path.join(PARENT_PATH, "accidents_clean")
+os.makedirs(EXTERNAL_PROCESSED_DIR, exist_ok=True)
+EXTERNAL_CLEAN_CSV     = os.path.join(EXTERNAL_PROCESSED_DIR, "US_Accidents_March23_clean.csv")
 # Other consts
 NUM_ROWS = 5    # Uses for display a certain quantit    y of rows
 EXIT_COMMANDS = (

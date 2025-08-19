@@ -4,6 +4,8 @@ from src.interface import user_interface as ui
 from src.constants import CSV
 from src.preprocessing import base_preprocess_datetime
 import src.preprocessing as prepro
+from src.data_loader import load_external_clean_or_build
+import src.stats as stats
 
 try:
     sys.stdout.reconfigure(encoding='utf-8')
@@ -35,8 +37,11 @@ def main(df: pd.DataFrame):
 
 if __name__ == "__main__":
     try:
-        # df = load_first_1000()
-        df = load_full()
+        try:
+            df = load_external_clean_or_build()
+        except FileNotFoundError as e:
+            print(str(e))
+            sys.exit(1)
         main(df)
     except (KeyboardInterrupt, EOFError):
         print('\nBye!')
