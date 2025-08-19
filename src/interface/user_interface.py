@@ -140,10 +140,6 @@ def main_menu(df):
             stats.chi2_bulk_severe_vs_common_factors(df)
             press_to_continue(main_menu, df)
             return
-        case "4":
-            stats.global_influence_scan(df)
-            press_to_continue(main_menu, df)
-            return
 
         case _:
             print('\nNot an option!')
@@ -261,8 +257,9 @@ def choose_period_df(df: pd.DataFrame) -> pd.DataFrame:
     print("\nWhich period do you want to show?")
     print("1. All years")
     print("2. Specific year")
-    print("3. Specific date range")
-    choice = checked_input("\nYour choice (1-3): ").strip()
+    print("3. Specific month")
+    print("4. Specific date range")
+    choice = checked_input("\nYour choice (1-4): ").strip()
 
     if choice == "1":
         return df
@@ -279,6 +276,17 @@ def choose_period_df(df: pd.DataFrame) -> pd.DataFrame:
         return df
 
     if choice == "3":
+        m = checked_input("Enter month number (1-12): ").strip()
+        if m.isdigit():
+            m_int = int(m)
+            if 1 <= m_int <= 12:
+                tmp = (df["Start_Time"] if pd.api.types.is_datetime64_any_dtype(df["Start_Time"])
+                       else pd.to_datetime(df["Start_Time"], errors="coerce"))
+                return df[tmp.dt.month == m_int]
+        print("Invalid month. Showing all years.")
+        return df
+
+    if choice == "4":
         for _ in range(2):
             print("\nExamples of valid input: 2020  |  2020-05  |  2020-05-10")
             s_from = checked_input("From date: ").strip()
