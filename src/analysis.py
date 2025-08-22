@@ -172,6 +172,7 @@ def feat(df: pd.DataFrame) -> pd.DataFrame:
 
     d["has_bump"] = _to01(d["Bump"]) if "Bump" in d.columns else 0
     d["has_crossing"] = _to01(d["Crossing"]) if "Crossing" in d.columns else 0
+    d["has_dui_signal"] = _to01(d["Traffic_Signal"]) if "Traffic_Signal" in d.columns else 0
     d = object_columns_to_category(d, columns=["City", "Weather_Condition", "road_type"])
 
     return d
@@ -179,9 +180,10 @@ def feat(df: pd.DataFrame) -> pd.DataFrame:
 
 def ensure_features(df: pd.DataFrame) -> pd.DataFrame:
     need = {
-        "is_severe", "is_weekend", "is_night","is_rush_hour",
-        "has_precipitation","has_bad_weather","is_visibility_low",
-        "has_bump","has_crossing","wind_speed_bin","road_type",
+        "is_severe", "is_weekend", "is_night", "is_rush_hour",
+        "has_precipitation", "has_bad_weather", "is_visibility_low",
+        "is_freezing", "has_bump", "has_crossing", "has_dui_signal",
+        "wind_speed_bin", "road_type",
     }
     return df if need.issubset(df.columns) else feat(df)
 
@@ -229,6 +231,20 @@ def kpi_by_year(df: pd.DataFrame, metric: str = 'accidents') -> pd.DataFrame:
         out = g.groupby('year')['has_precipitation'].mean().reset_index(name='precip_share')
     elif metric == 'bad_weather_share':
         out = g.groupby('year')['has_bad_weather'].mean().reset_index(name='bad_weather_share')
+    elif metric == 'night_share':
+        out = g.groupby('year')['is_night'].mean().reset_index(name='night_share')
+    elif metric == 'rush_hour_share':
+        out = g.groupby('year')['is_rush_hour'].mean().reset_index(name='rush_hour_share')
+    elif metric == 'visibility_low_share':
+        out = g.groupby('year')['is_visibility_low'].mean().reset_index(name='visibility_low_share')
+    elif metric == 'freezing_share':
+        out = g.groupby('year')['is_freezing'].mean().reset_index(name='freezing_share')
+    elif metric == 'bump_share':
+        out = g.groupby('year')['has_bump'].mean().reset_index(name='bump_share')
+    elif metric == 'crossing_share':
+        out = g.groupby('year')['has_crossing'].mean().reset_index(name='crossing_share')
+    elif metric == 'dui_share':
+        out = g.groupby('year')['has_dui_signal'].mean().reset_index(name='dui_share')
     else:
         out = g.groupby('year').size().reset_index(name='accidents')
 
@@ -259,12 +275,23 @@ def kpi_by_year_all(df: pd.DataFrame) -> pd.DataFrame:
              weekend_share=('is_weekend', 'mean'),
              precip_share=('has_precipitation', 'mean'),
              bad_weather_share=('has_bad_weather', 'mean'),
+             night_share=('is_night', 'mean'),
+             rush_hour_share=('is_rush_hour', 'mean'),
+             visibility_low_share=('is_visibility_low', 'mean'),
+             freezing_share=('is_freezing', 'mean'),
+             bump_share=('has_bump', 'mean'),
+             crossing_share=('has_crossing', 'mean'),
+             dui_share=('has_dui_signal', 'mean'),
          )
          .reset_index()
     )
 
     out['year'] = out['year'].astype(int)
-    for c in ['severe_share', 'weekend_share', 'precip_share', 'bad_weather_share']:
+    for c in [
+        'severe_share', 'weekend_share', 'precip_share', 'bad_weather_share',
+        'night_share', 'rush_hour_share', 'visibility_low_share',
+        'freezing_share', 'bump_share', 'crossing_share', 'dui_share',
+    ]:
         out[c] = (out[c] * 100).round(1)
     out['avg_severity'] = out['avg_severity'].round(2)
     return out.sort_values('year')
@@ -275,24 +302,72 @@ def kpi_components_by_year(df: pd.DataFrame, scale: int = 10000) -> pd.DataFrame
     severe = g.get("is_severe", pd.Series(0, index=g.index)).astype(bool)
     weekend = g.get("is_weekend", pd.Series(0, index=g.index)).astype(bool)
     precip = g.get("has_precipitation", pd.Series(0, index=g.index)).astype(bool)
-    bad    = g.get("has_bad_weather", pd.Series(0, index=g.index)).astype(bool)
+    bad = g.get("has_bad_weather", pd.Series(0, index=g.index)).astype(bool)
+    night = g.get("is_night", pd.Series(0, index=g.index)).astype(bool)
+    rush = g.get("is_rush_hour", pd.Series(0, index=g.index)).astype(bool)
+    vis_low = g.get("is_visibility_low", pd.Series(0, index=g.index)).astype(bool)
+    freezing = g.get("is_freezing", pd.Series(0, index=g.index)).astype(bool)
+    bump = g.get("has_bump", pd.Series(0, index=g.index)).astype(bool)
+    crossing = g.get("has_crossing", pd.Series(0, index=g.index)).astype(bool)
+    dui = g.get("has_dui_signal", pd.Series(0, index=g.index)).astype(bool)
+
     bucket_severe = severe
     bucket_weekend = (~bucket_severe) & weekend
     bucket_precip = (~bucket_severe) & (~bucket_weekend) & precip
-    bucket_bad    = (~bucket_severe) & (~bucket_weekend) & (~bucket_precip) & bad
-    bucket_other  = ~(bucket_severe | bucket_weekend | bucket_precip | bucket_bad)
+    bucket_bad = (~bucket_severe) & (~bucket_weekend) & (~bucket_precip) & bad
+    bucket_night = (~bucket_severe & ~bucket_weekend & ~bucket_precip & ~bucket_bad) & night
+    bucket_rush = (~bucket_severe & ~bucket_weekend & ~bucket_precip & ~bucket_bad & ~bucket_night) & rush
+    bucket_vis_low = (
+        ~bucket_severe & ~bucket_weekend & ~bucket_precip &
+        ~bucket_bad & ~bucket_night & ~bucket_rush & vis_low
+    )
+    bucket_freezing = (
+        ~bucket_severe & ~bucket_weekend & ~bucket_precip & ~bucket_bad &
+        ~bucket_night & ~bucket_rush & ~bucket_vis_low & freezing
+    )
+    bucket_bump = (
+        ~bucket_severe & ~bucket_weekend & ~bucket_precip & ~bucket_bad &
+        ~bucket_night & ~bucket_rush & ~bucket_vis_low & ~bucket_freezing & bump
+    )
+    bucket_crossing = (
+        ~bucket_severe & ~bucket_weekend & ~bucket_precip & ~bucket_bad &
+        ~bucket_night & ~bucket_rush & ~bucket_vis_low & ~bucket_freezing &
+        ~bucket_bump & crossing
+    )
+    bucket_dui = (
+        ~bucket_severe & ~bucket_weekend & ~bucket_precip & ~bucket_bad &
+        ~bucket_night & ~bucket_rush & ~bucket_vis_low & ~bucket_freezing &
+        ~bucket_bump & ~bucket_crossing & dui
+    )
+    bucket_other = ~(
+        bucket_severe | bucket_weekend | bucket_precip | bucket_bad |
+        bucket_night | bucket_rush | bucket_vis_low | bucket_freezing |
+        bucket_bump | bucket_crossing | bucket_dui
+    )
+
     parts = pd.DataFrame({
         "year": g["year"],
         "severe": bucket_severe.astype(int),
         "weekend_only": bucket_weekend.astype(int),
         "precip_only": bucket_precip.astype(int),
         "bad_only": bucket_bad.astype(int),
+        "night_only": bucket_night.astype(int),
+        "rush_hour_only": bucket_rush.astype(int),
+        "visibility_low_only": bucket_vis_low.astype(int),
+        "freezing_only": bucket_freezing.astype(int),
+        "bump_only": bucket_bump.astype(int),
+        "crossing_only": bucket_crossing.astype(int),
+        "dui_only": bucket_dui.astype(int),
         "other": bucket_other.astype(int),
     })
     agg = parts.groupby("year", as_index=False).sum()
     totals = g.groupby("year", as_index=False).size().rename(columns={"size": "accidents"})
     out = agg.merge(totals, on="year", how="left")
-    for c in ["severe", "weekend_only", "precip_only", "bad_only", "other", "accidents"]:
+    for c in [
+        "severe", "weekend_only", "precip_only", "bad_only", "night_only",
+        "rush_hour_only", "visibility_low_only", "freezing_only",
+        "bump_only", "crossing_only", "dui_only", "other", "accidents",
+    ]:
         out[c] = (out[c] / float(scale)).round(2)
     return out.sort_values("year")
 

@@ -15,15 +15,10 @@ PROGRAM_LOGO = MENUS_PATH + r"/program_logo.txt"
 MAIN_MENU = MENUS_PATH + r'/main_menu.txt'
 MAIN_MENU_LOGO = MAIN_MENU.rstrip('.txt') + '_logo.txt'
 PRESET_REPORTS_MENU = MENUS_PATH + r'/preset_reports_menu.txt'
-CUSTOM_REPORTS_MENU = MENUS_PATH + r'/custom_reports_menu.txt'
 PRESET_REPORTS_LOGO = PRESET_REPORTS_MENU.rstrip('.txt') + '_logo.txt'
-KPI_BY_YEAR_MENU = MENUS_PATH + r'/kpi_by_year_menu.txt'
-KPI_BY_YEAR_LOGO = KPI_BY_YEAR_MENU.rstrip('.txt') + '_logo.txt'
 
 MENU_HIERACHY = {
     PRESET_REPORTS_MENU: MAIN_MENU,
-    CUSTOM_REPORTS_MENU: MAIN_MENU,
-    KPI_BY_YEAR_MENU: CUSTOM_REPORTS_MENU
 }
 
 # Utils
@@ -210,28 +205,8 @@ def preset_reports_menu(df: pd.DataFrame):
 
 
 def custom_report_menu(df: pd.DataFrame):
-    print_menu(CUSTOM_REPORTS_MENU)
-    user_input = checked_input('\nChoose the available one:')
-    exit_program(user_input)
-    match user_input:
-        case "1":
-            df = kpi_by_year_menu(df)
-            press_to_continue(custom_report_menu, df)
-            return
-        case "2":
-            print("\nStat test: Chi-square (is_severe × is_weekend)")
-            df_period = choose_period_df(df)        # сначала период
-            if df_period.empty:
-                print("\n[Notice] No data left after filtering. Showing all years.")
-                df_period = df
-            import src.analysis as analysis
-            analysis.chi2_is_severe_vs_weekend(df_period)   # запускаем тест
-            press_to_continue(custom_report_menu, df)
-            return
-        case _:
-            print('\nNot an option!')
-            time.sleep(1)
-            custom_report_menu(df)
+    df = kpi_by_year_menu(df)
+    press_to_continue(main_menu, df)
 
 
 # ========= KPI helpers (period & KPI choice) =========
@@ -310,7 +285,7 @@ def choose_period_df(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 def choose_kpi() -> str:
-    print("\nKPI by year")
+    print("\nCustom reports")
     print("1. All metrics (stacked, per 10k)")
     print("2. Accidents (count)")
     print("3. Severe share (%)")
@@ -319,7 +294,14 @@ def choose_kpi() -> str:
     print("6. Precipitation share (%)")
     print("7. Bad weather share (%)")
     print("8. Accidents by month")
-    choice = checked_input("\nChoose KPI (1-8): ").strip()
+    print("9. Night share (%)")
+    print("10. Rush hour share (%)")
+    print("11. Low visibility share (%)")
+    print("12. Freezing share (%)")
+    print("13. Bump share (%)")
+    print("14. Crossing share (%)")
+    print("15. DUI signal share (%)")
+    choice = checked_input("\nChoose KPI (1-15): ").strip()
     return {
         "1": "__stacked__",
         "2": "accidents",
@@ -329,6 +311,13 @@ def choose_kpi() -> str:
         "6": "precip_share",
         "7": "bad_weather_share",
         "8": "accidents_by_month",
+        "9": "night_share",
+        "10": "rush_hour_share",
+        "11": "visibility_low_share",
+        "12": "freezing_share",
+        "13": "bump_share",
+        "14": "crossing_share",
+        "15": "dui_share",
     }.get(choice, "accidents")
 
 # ========= KPI menu (thin UI) =========
@@ -365,20 +354,42 @@ def kpi_by_year_menu(df: pd.DataFrame) -> pd.DataFrame:
     if metric == "__stacked__":
         pretty = (
             analysis.kpi_components_by_year(d_filtered, scale=10000)
-            .rename(columns={
-                "severe": "Severe",
-                "weekend_only": "Weekend only",
-                "precip_only": "Precip only",
-                "bad_only": "Bad weather only",
-                "other": "Other",
-            })
+            .rename(
+                columns={
+                    "severe": "Severe",
+                    "weekend_only": "Weekend only",
+                    "precip_only": "Precip only",
+                    "bad_only": "Bad weather only",
+                    "night_only": "Night only",
+                    "rush_hour_only": "Rush hour only",
+                    "visibility_low_only": "Low visibility only",
+                    "freezing_only": "Freezing only",
+                    "bump_only": "Bump only",
+                    "crossing_only": "Crossing only",
+                    "dui_only": "DUI only",
+                    "other": "Other",
+                }
+            )
         )
         visualization.stacked_components_bar(
             pretty,
             x_col="year",
-            stack_cols=("Severe", "Weekend only", "Precip only", "Bad weather only", "Other"),
+            stack_cols=(
+                "Severe",
+                "Weekend only",
+                "Precip only",
+                "Bad weather only",
+                "Night only",
+                "Rush hour only",
+                "Low visibility only",
+                "Freezing only",
+                "Bump only",
+                "Crossing only",
+                "DUI only",
+                "Other",
+            ),
             title="Accidents by year (stacked components, per 10k)",
-            ylabel="Accidents (per 10k)"
+            ylabel="Accidents (per 10k)",
         )
         print(pretty[["year", "accidents"]].rename(columns={"accidents": "Accidents (per 10k)"}))
         return d  # возвращаем df с фичами наверх
