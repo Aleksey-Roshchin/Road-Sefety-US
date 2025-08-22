@@ -5,8 +5,6 @@ import src.visualization as visualization
 import src.analysis as analysis
 import src.stats as stats
 import sys
-from src.data_loader import ld
-from src.preprocessing import base_preprocess_datetime
 from tabulate import tabulate
 
 
@@ -208,9 +206,6 @@ def custom_report_menu(df: pd.DataFrame):
     df = kpi_by_year_menu(df)
     press_to_continue(main_menu, df)
 
-
-# ========= KPI helpers (period & KPI choice) =========
-
 def start_from_input(s: str):
     s = (s or "").strip()
     if not s:
@@ -320,29 +315,22 @@ def choose_kpi() -> str:
         "15": "dui_share",
     }.get(choice, "accidents")
 
-# ========= KPI menu (thin UI) =========
 def kpi_by_year_menu(df: pd.DataFrame) -> pd.DataFrame:
-    # 1) сначала выбор KPI
     metric = choose_kpi()
 
-    # 2) потом выбор периода
     d_period = choose_period_df(df)
     if d_period.empty:
         print("\n[Notice] No data left after filtering. Showing all years.")
         d_period = df
 
-    # 3) гарантируем фичи (на полном df), чтобы последующие вызовы были быстрыми
     d = analysis.ensure_features(df)
 
-    # 4) применим период уже к обогащенному датасету
     if "Start_Time" in d.columns and pd.api.types.is_datetime64_any_dtype(d["Start_Time"]):
         times = d["Start_Time"]
     else:
         times = pd.to_datetime(d["Start_Time"], errors="coerce")
 
-    # пересчитаем фильтр периода относительно 'd'
     if d_period is not df:
-        # получим границы по d_period
         _t = pd.to_datetime(df["Start_Time"], errors="coerce")
         mask_src = df.index[_t.isin(pd.to_datetime(d_period["Start_Time"], errors="coerce"))]
         mask = d.index.isin(mask_src)
@@ -350,7 +338,6 @@ def kpi_by_year_menu(df: pd.DataFrame) -> pd.DataFrame:
     else:
         d_filtered = d
 
-    # 5) отрисовка/таблица
     if metric == "__stacked__":
         pretty = (
             analysis.kpi_components_by_year(d_filtered, scale=10000)
@@ -392,7 +379,7 @@ def kpi_by_year_menu(df: pd.DataFrame) -> pd.DataFrame:
             ylabel="Accidents (per 10k)",
         )
         print(pretty[["year", "accidents"]].rename(columns={"accidents": "Accidents (per 10k)"}))
-        return d  # возвращаем df с фичами наверх
+        return d
 
     if metric == "accidents_by_month":
         df_month = analysis.accidents_by_month(d_filtered)
@@ -405,7 +392,7 @@ def kpi_by_year_menu(df: pd.DataFrame) -> pd.DataFrame:
     if len(df_kpi.columns) == 2:
         ask_for_visualize(df_kpi)
 
-    return d  # возвращаем df с фичами наверх
+    return d
 
 
 

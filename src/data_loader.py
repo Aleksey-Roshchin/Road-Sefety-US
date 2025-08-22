@@ -8,7 +8,6 @@ from src.constants import (
     EXTERNAL_CLEAN_CSV,     # D:\git\accidents_clean\US_Accidents_March23_clean.csv
 )
 
-# Keep only necessary columns to reduce memory during ETL
 KEEP_COLS = [
     "Start_Time", "Severity", "City", "Weather_Condition", "Visibility(mi)",
     "Precipitation(in)", "Temperature(F)", "Wind_Speed(mph)",
@@ -16,7 +15,6 @@ KEEP_COLS = [
 ]
 
 def _find_raw_csv() -> str:
-    """Prefer external ..\\dataset\\US_Accidents_March23.csv; else fall back to constants.CSV."""
     candidates = [EXTERNAL_RAW_CSV, CSV]
     for path in candidates:
         if path and os.path.exists(path):
@@ -29,7 +27,6 @@ def _find_raw_csv() -> str:
     )
 
 def _etl_clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    """Parse dates, trim outliers, keep years 2016..2023, drop critical NAs, cast categories."""
     df = base_preprocess_datetime(
         df,
         apply_outliers=True,
@@ -42,7 +39,6 @@ def _etl_clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 def build_clean_to_parent() -> pd.DataFrame:
-    """ETL -> save cleaned CSV at ..\\accidents_clean\\US_Accidents_March23_clean.csv, return cleaned df."""
     raw_path = _find_raw_csv()
     df_raw   = pd.read_csv(raw_path, usecols=lambda c: c in KEEP_COLS, on_bad_lines="skip", low_memory=False)
     df_clean = _etl_clean_dataframe(df_raw)

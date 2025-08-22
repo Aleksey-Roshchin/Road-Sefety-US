@@ -23,25 +23,14 @@ def base_preprocess_datetime(
     apply_outliers: bool = True,
     outlier_cols=None,
 ):
-    """
-    Parse datetime column, add 'year' and 'date', optionally trim extreme outliers.
-    Safe assignments to avoid SettingWithCopyWarning.
-    """
-    import numpy as np
+
     import pandas as pd
-
-    # >>> ключ: работаем с копией, а не с возможным view
     d = df.copy()
-
-    # datetime
     d.loc[:, time_col] = pd.to_datetime(d[time_col], errors="coerce")
     d = d.dropna(subset=[time_col]).reset_index(drop=True)
-
-    # удобные поля дат
     d.loc[:, "year"] = d[time_col].dt.year
     d.loc[:, "date"] = d[time_col].dt.date
 
-    # простая зачистка экстремов (опционально)
     if apply_outliers and outlier_cols:
         for c in outlier_cols:
             if c in d.columns:
