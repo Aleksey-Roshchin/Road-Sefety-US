@@ -1,5 +1,5 @@
 Available options:
 
 1. Preset reports
-2. Custom reports
+2. KPI by year
 3. Test square(common factors)

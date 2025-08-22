@@ -172,6 +172,7 @@ def feat(df: pd.DataFrame) -> pd.DataFrame:
 
     d["has_bump"] = _to01(d["Bump"]) if "Bump" in d.columns else 0
     d["has_crossing"] = _to01(d["Crossing"]) if "Crossing" in d.columns else 0
+    d["has_dui_signal"] = _to01(d["Traffic_Signal"]) if "Traffic_Signal" in d.columns else 0
     d = object_columns_to_category(d, columns=["City", "Weather_Condition", "road_type"])
 
     return d
@@ -179,9 +180,10 @@ def feat(df: pd.DataFrame) -> pd.DataFrame:
 
 def ensure_features(df: pd.DataFrame) -> pd.DataFrame:
     need = {
-        "is_severe", "is_weekend", "is_night","is_rush_hour",
-        "has_precipitation","has_bad_weather","is_visibility_low",
-        "has_bump","has_crossing","wind_speed_bin","road_type",
+        "is_severe", "is_weekend", "is_night", "is_rush_hour",
+        "has_precipitation", "has_bad_weather", "is_visibility_low",
+        "is_freezing", "has_bump", "has_crossing", "has_dui_signal",
+        "wind_speed_bin", "road_type",
     }
     return df if need.issubset(df.columns) else feat(df)
 
@@ -229,6 +231,20 @@ def kpi_by_year(df: pd.DataFrame, metric: str = 'accidents') -> pd.DataFrame:
         out = g.groupby('year')['has_precipitation'].mean().reset_index(name='precip_share')
     elif metric == 'bad_weather_share':
         out = g.groupby('year')['has_bad_weather'].mean().reset_index(name='bad_weather_share')
+    elif metric == 'night_share':
+        out = g.groupby('year')['is_night'].mean().reset_index(name='night_share')
+    elif metric == 'rush_hour_share':
+        out = g.groupby('year')['is_rush_hour'].mean().reset_index(name='rush_hour_share')
+    elif metric == 'visibility_low_share':
+        out = g.groupby('year')['is_visibility_low'].mean().reset_index(name='visibility_low_share')
+    elif metric == 'freezing_share':
+        out = g.groupby('year')['is_freezing'].mean().reset_index(name='freezing_share')
+    elif metric == 'bump_share':
+        out = g.groupby('year')['has_bump'].mean().reset_index(name='bump_share')
+    elif metric == 'crossing_share':
+        out = g.groupby('year')['has_crossing'].mean().reset_index(name='crossing_share')
+    elif metric == 'dui_share':
+        out = g.groupby('year')['has_dui_signal'].mean().reset_index(name='dui_share')
     else:
         out = g.groupby('year').size().reset_index(name='accidents')
 
@@ -259,12 +275,23 @@ def kpi_by_year_all(df: pd.DataFrame) -> pd.DataFrame:
              weekend_share=('is_weekend', 'mean'),
              precip_share=('has_precipitation', 'mean'),
              bad_weather_share=('has_bad_weather', 'mean'),
+             night_share=('is_night', 'mean'),
+             rush_hour_share=('is_rush_hour', 'mean'),
+             visibility_low_share=('is_visibility_low', 'mean'),
+             freezing_share=('is_freezing', 'mean'),
+             bump_share=('has_bump', 'mean'),
+             crossing_share=('has_crossing', 'mean'),
+             dui_share=('has_dui_signal', 'mean'),
          )
          .reset_index()
     )
 
     out['year'] = out['year'].astype(int)
-    for c in ['severe_share', 'weekend_share', 'precip_share', 'bad_weather_share']:
+    for c in [
+        'severe_share', 'weekend_share', 'precip_share', 'bad_weather_share',
+        'night_share', 'rush_hour_share', 'visibility_low_share',
+        'freezing_share', 'bump_share', 'crossing_share', 'dui_share',
+    ]:
         out[c] = (out[c] * 100).round(1)
     out['avg_severity'] = out['avg_severity'].round(2)
     return out.sort_values('year')
