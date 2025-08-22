@@ -1,5 +1,7 @@
 # src/stats.py
 import pandas as pd
+from tabulate import tabulate
+
 
 def chi2_bulk_severe_vs_common_factors(df: pd.DataFrame, alpha: float = 0.05) -> None:
     """Chi-square test: is_severe vs. each common factor."""
@@ -10,10 +12,11 @@ def chi2_bulk_severe_vs_common_factors(df: pd.DataFrame, alpha: float = 0.05) ->
         "is_weekend", "is_night", "is_rush_hour",
         "has_precipitation", "has_bad_weather",
         "is_visibility_low", "is_freezing",
-        "has_bump", "has_crossing",
+        "has_bump", "has_crossing", "has_dui_signal",
         "wind_speed_bin", "road_type",
     ]
 
+    # try to use SciPy; if not available — fallback to percents
     try:
         from scipy.stats import chi2_contingency
         have_scipy = True
@@ -28,7 +31,8 @@ def chi2_bulk_severe_vs_common_factors(df: pd.DataFrame, alpha: float = 0.05) ->
             continue
 
         ct = pd.crosstab(d["is_severe"], d[f])
-        print("Counts:\n", ct)
+        print("Counts:")
+        print(tabulate(ct, headers="keys", tablefmt="psql"))
 
         if not have_scipy or ct.shape[0] < 2 or ct.shape[1] < 2:
             continue
@@ -37,7 +41,7 @@ def chi2_bulk_severe_vs_common_factors(df: pd.DataFrame, alpha: float = 0.05) ->
         chi2, p, dof, _ = chi2_contingency(ct.values, correction=use_yates)
         v = _cramers_v(chi2, ct)
         result = "REJECT H0 (dependence)" if p <= alpha else "Fail to reject H0 (no evidence)"
-        print(f"chi2={chi2:.3f}, dof={dof}, p={p:.6f}, V={v:.3f} (Yates={use_yates})")
+        print(f"p={p:.6f}, V={v:.3f} (Yates={use_yates})")
         print("Result:", result)
 
 def _cramers_v(chi2, ct):

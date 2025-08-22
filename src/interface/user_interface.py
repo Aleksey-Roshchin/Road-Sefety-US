@@ -285,7 +285,7 @@ def choose_period_df(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 def choose_kpi() -> str:
-    print("\nKPI by year")
+    print("\nCustom reports")
     print("1. All metrics (stacked, per 10k)")
     print("2. Accidents (count)")
     print("3. Severe share (%)")
@@ -354,20 +354,42 @@ def kpi_by_year_menu(df: pd.DataFrame) -> pd.DataFrame:
     if metric == "__stacked__":
         pretty = (
             analysis.kpi_components_by_year(d_filtered, scale=10000)
-            .rename(columns={
-                "severe": "Severe",
-                "weekend_only": "Weekend only",
-                "precip_only": "Precip only",
-                "bad_only": "Bad weather only",
-                "other": "Other",
-            })
+            .rename(
+                columns={
+                    "severe": "Severe",
+                    "weekend_only": "Weekend only",
+                    "precip_only": "Precip only",
+                    "bad_only": "Bad weather only",
+                    "night_only": "Night only",
+                    "rush_hour_only": "Rush hour only",
+                    "visibility_low_only": "Low visibility only",
+                    "freezing_only": "Freezing only",
+                    "bump_only": "Bump only",
+                    "crossing_only": "Crossing only",
+                    "dui_only": "DUI only",
+                    "other": "Other",
+                }
+            )
         )
         visualization.stacked_components_bar(
             pretty,
             x_col="year",
-            stack_cols=("Severe", "Weekend only", "Precip only", "Bad weather only", "Other"),
+            stack_cols=(
+                "Severe",
+                "Weekend only",
+                "Precip only",
+                "Bad weather only",
+                "Night only",
+                "Rush hour only",
+                "Low visibility only",
+                "Freezing only",
+                "Bump only",
+                "Crossing only",
+                "DUI only",
+                "Other",
+            ),
             title="Accidents by year (stacked components, per 10k)",
-            ylabel="Accidents (per 10k)"
+            ylabel="Accidents (per 10k)",
         )
         print(pretty[["year", "accidents"]].rename(columns={"accidents": "Accidents (per 10k)"}))
         return d  # возвращаем df с фичами наверх

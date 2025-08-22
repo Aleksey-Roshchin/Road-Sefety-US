@@ -1,6 +1,6 @@
 Available options:
 
-1. All metrics (table)
+1. All metrics (stacked, per 10k)
 2. Accidents (count)
 3. Severe share (heavy accidents)
 4. Avg Severity
