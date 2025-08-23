@@ -1,6 +1,7 @@
 import re
 import numpy as np
 import pandas as pd
+from typing import Dict
 import src.visualization as visualization
 import src.preprocessing as prepro
 import src.constants as consts
@@ -295,55 +296,29 @@ def kpi_components_by_year(df: pd.DataFrame, scale: int = 10000) -> pd.DataFrame
     crossing = g.get("has_crossing", pd.Series(0, index=g.index)).astype(bool)
     dui = g.get("has_dui_signal", pd.Series(0, index=g.index)).astype(bool)
 
-    bucket_severe = severe
-    bucket_weekend = (~bucket_severe) & weekend
-    bucket_precip = (~bucket_severe) & (~bucket_weekend) & precip
-    bucket_bad = (~bucket_severe) & (~bucket_weekend) & (~bucket_precip) & bad
-    bucket_night = (~bucket_severe & ~bucket_weekend & ~bucket_precip & ~bucket_bad) & night
-    bucket_rush = (~bucket_severe & ~bucket_weekend & ~bucket_precip & ~bucket_bad & ~bucket_night) & rush
-    bucket_vis_low = (
-        ~bucket_severe & ~bucket_weekend & ~bucket_precip &
-        ~bucket_bad & ~bucket_night & ~bucket_rush & vis_low
-    )
-    bucket_freezing = (
-        ~bucket_severe & ~bucket_weekend & ~bucket_precip & ~bucket_bad &
-        ~bucket_night & ~bucket_rush & ~bucket_vis_low & freezing
-    )
-    bucket_bump = (
-        ~bucket_severe & ~bucket_weekend & ~bucket_precip & ~bucket_bad &
-        ~bucket_night & ~bucket_rush & ~bucket_vis_low & ~bucket_freezing & bump
-    )
-    bucket_crossing = (
-        ~bucket_severe & ~bucket_weekend & ~bucket_precip & ~bucket_bad &
-        ~bucket_night & ~bucket_rush & ~bucket_vis_low & ~bucket_freezing &
-        ~bucket_bump & crossing
-    )
-    bucket_dui = (
-        ~bucket_severe & ~bucket_weekend & ~bucket_precip & ~bucket_bad &
-        ~bucket_night & ~bucket_rush & ~bucket_vis_low & ~bucket_freezing &
-        ~bucket_bump & ~bucket_crossing & dui
-    )
-    bucket_other = ~(
-        bucket_severe | bucket_weekend | bucket_precip | bucket_bad |
-        bucket_night | bucket_rush | bucket_vis_low | bucket_freezing |
-        bucket_bump | bucket_crossing | bucket_dui
-    )
+    conditions = [
+        ("severe", severe),
+        ("weekend_only", weekend),
+        ("precip_only", precip),
+        ("bad_only", bad),
+        ("night_only", night),
+        ("rush_hour_only", rush),
+        ("visibility_low_only", vis_low),
+        ("freezing_only", freezing),
+        ("bump_only", bump),
+        ("crossing_only", crossing),
+        ("dui_only", dui),
+    ]
 
-    parts = pd.DataFrame({
-        "year": g["year"],
-        "severe": bucket_severe.astype(int),
-        "weekend_only": bucket_weekend.astype(int),
-        "precip_only": bucket_precip.astype(int),
-        "bad_only": bucket_bad.astype(int),
-        "night_only": bucket_night.astype(int),
-        "rush_hour_only": bucket_rush.astype(int),
-        "visibility_low_only": bucket_vis_low.astype(int),
-        "freezing_only": bucket_freezing.astype(int),
-        "bump_only": bucket_bump.astype(int),
-        "crossing_only": bucket_crossing.astype(int),
-        "dui_only": bucket_dui.astype(int),
-        "other": bucket_other.astype(int),
-    })
+    remaining = pd.Series(True, index=g.index)
+    buckets: Dict[str, pd.Series] = {}
+    for name, cond in conditions:
+        bucket = cond & remaining
+        buckets[name] = bucket.astype(int)
+        remaining &= ~bucket
+    buckets["other"] = remaining.astype(int)
+
+    parts = pd.DataFrame({"year": g["year"], **buckets})
     agg = parts.groupby("year", as_index=False).sum()
     totals = g.groupby("year", as_index=False).size().rename(columns={"size": "accidents"})
     out = agg.merge(totals, on="year", how="left")
