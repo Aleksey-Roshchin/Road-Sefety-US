@@ -1,10 +1,8 @@
-# src/stats.py
 import pandas as pd
 from tabulate import tabulate
 
 
 def chi2_bulk_severe_vs_common_factors(df: pd.DataFrame, alpha: float = 0.05) -> None:
-    """Chi-square test: is_severe vs. each common factor."""
     import src.analysis as analysis
     d = analysis.ensure_features(df)
 
@@ -16,27 +14,23 @@ def chi2_bulk_severe_vs_common_factors(df: pd.DataFrame, alpha: float = 0.05) ->
         "wind_speed_bin", "road_type",
     ]
 
-    # try to use SciPy; if not available — fallback to percents
     try:
         from scipy.stats import chi2_contingency
         have_scipy = True
     except Exception:
         have_scipy = False
         print("Tip: install scipy to see p-values")
-
     for f in factors:
         print(f"\n=== is_severe × {f} ===")
         if f not in d.columns:
             print("column not found")
             continue
-
         ct = pd.crosstab(d["is_severe"], d[f])
         print("Counts:")
         print(tabulate(ct, headers="keys", tablefmt="psql"))
 
         if not have_scipy or ct.shape[0] < 2 or ct.shape[1] < 2:
             continue
-
         use_yates = ct.shape == (2, 2)
         chi2, p, dof, _ = chi2_contingency(ct.values, correction=use_yates)
         v = _cramers_v(chi2, ct)
