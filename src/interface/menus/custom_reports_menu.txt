@@ -1,0 +1,5 @@
+
+Available options:
+
+1. KPI by year
+2. KPI by location

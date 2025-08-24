@@ -1,5 +1,6 @@
 Available options:
 
-1. Preset reports
+1. KPI by location
 2. KPI by year
 3. Test square(common factors)
+4. Help

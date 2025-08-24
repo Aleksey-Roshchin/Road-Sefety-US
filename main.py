@@ -28,9 +28,6 @@ def load_full() -> pd.DataFrame:
 
 
 def main(df: pd.DataFrame):
-    # print(df_processed.info())
-    # print(df_processed['City'].head())
-    # ui.press_to_continue()
     ui.enable_utf8()
     ui.clear()
     ui.print_logo_centered(ui.PROGRAM_LOGO)
@@ -39,8 +36,8 @@ def main(df: pd.DataFrame):
 if __name__ == "__main__":
     try:
         try:
-            # df = df_original
-            df = load_external_clean_or_build()
+            df = df_original
+            #df = load_external_clean_or_build()
         except FileNotFoundError as e:
             print(str(e))
             sys.exit(1)
