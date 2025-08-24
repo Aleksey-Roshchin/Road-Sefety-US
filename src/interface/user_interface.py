@@ -1,6 +1,6 @@
 import os, time, shutil, sys
 import pandas as pd
-from src.constants import SRC_PATH, USER_INPUT_FORM, EXIT_COMMANDS, BACK_COMMANDS, CSV
+from src.constants import SRC_PATH, README_PATH, USER_INPUT_FORM, EXIT_COMMANDS, BACK_COMMANDS, CSV
 import src.visualization as visualization
 import src.analysis as analysis
 import src.stats as stats
@@ -14,9 +14,9 @@ MAIN_MENU = MENUS_PATH + r'/main_menu.txt'
 MAIN_MENU_LOGO = MAIN_MENU.rstrip('.txt') + '_logo.txt'
 PRESET_REPORTS_MENU = MENUS_PATH + r'/preset_reports_menu.txt'
 PRESET_REPORTS_LOGO = PRESET_REPORTS_MENU.rstrip('.txt') + '_logo.txt'
-CUSTOM_REPORTS_MENU = MENUS_PATH + r'/custom_reports_menu.txt'
-CUSTOM_REPORTS_LOGO = CUSTOM_REPORTS_MENU.rstrip('.txt') + '_logo.txt'
-KPI_BY_YEAR_MENU = MENUS_PATH + r'/kpi_by_year_menu_logo.txt'
+# CUSTOM_REPORTS_MENU = MENUS_PATH + r'/custom_reports_menu.txt'
+# CUSTOM_REPORTS_LOGO = CUSTOM_REPORTS_MENU.rstrip('.txt') + '_logo.txt'
+KPI_BY_YEAR_MENU = MENUS_PATH + r'/kpi_by_year_menu.txt'
 KPI_BY_YEAR_LOGO = KPI_BY_YEAR_MENU.rstrip('.txt') + '_logo.txt'
 
 
@@ -150,12 +150,22 @@ def main_menu(df: pd.DataFrame, menu_filepath=MAIN_MENU) -> None:
         case "1":
             preset_reports_menu(df)
         case "2":
-            custom_report_menu(df)
+            kpi_by_year_menu(df)
+            press_to_continue(kpi_by_year_menu, df)
         case "3":
             stats.chi2_bulk_severe_vs_common_factors(df)
             press_to_continue(main_menu, df)
             return
-
+        case "4":
+            analysis.correlation_overview(df)
+            press_to_continue(preset_reports_menu,df)
+            return
+        case "5":
+            clear()
+            with open(README_PATH, 'r', encoding='utf-8') as f: 
+                print(f.read())
+            press_to_continue(main_menu, df)
+            return
         case _:
             print('\nNot an option!')
             time.sleep(1)
@@ -199,92 +209,88 @@ def preset_reports_menu(df: pd.DataFrame, menu_filepath=PRESET_REPORTS_MENU):
             ask_for_visualize(df_city_dangerous_streets)
             press_to_continue(preset_reports_menu, df)
             return
-        case "5":
-            analysis.correlation_overview(df)
-            press_to_continue(preset_reports_menu,df)
-            return
         case _:
             print('\nNot an option!')
             time.sleep(1)
             preset_reports_menu(df)
 
 
-def custom_report_menu(df: pd.DataFrame, menu_filepath=CUSTOM_REPORTS_MENU, parent_menu=main_menu):
-    print_menu(menu_filepath)
-    user_input = checked_input('\nChoose the available one:', df, current_menu=preset_reports_menu, parent_menu=parent_menu)
-    match user_input:
-        case "1":
-            kpi_by_year_menu(df)
-            press_to_continue(custom_report_menu, df)
-            return
-        case _:
-            print('\nNot an option!')
-            time.sleep(1)
-            custom_report_menu(df)
+# def custom_report_menu(df: pd.DataFrame, menu_filepath=CUSTOM_REPORTS_MENU, parent_menu=main_menu):
+#     print_menu(menu_filepath)
+#     user_input = checked_input('\nChoose the available one:', df, current_menu=preset_reports_menu, parent_menu=parent_menu)
+#     match user_input:
+#         case "1":
+#             kpi_by_year_menu(df)
+#             press_to_continue(custom_report_menu, df)
+#             return
+#         case _:
+#             print('\nNot an option!')
+#             time.sleep(1)
+#             custom_report_menu(df)
 
 
-def kpi_by_year_menu(df: pd.DataFrame, menu_filepath=KPI_BY_YEAR_MENU, parent_menu=custom_report_menu):
+# def kpi_by_year_menu(df: pd.DataFrame, menu_filepath=KPI_BY_YEAR_MENU, parent_menu=main_menu):
 
-    df_full = ld(CSV)
-    df_full = base_preprocess_datetime(df_full)
-    df_full = analysis.feat(df_full)
-    df = df_full
+#     df_full = ld(CSV)
+#     df_full = base_preprocess_datetime(df_full)
+#     df_full = analysis.feat(df_full)
+#     df = df_full
 
-    # need = {
-    #     "is_severe", "is_weekend", "is_night", "is_rush_hour",
-    #     "has_precipitation", "has_bad_weather", "is_visibility_low",
-    #     "is_freezing", "has_bump", "has_crossing", "road_type", "wind_speed_bin",
-    # }
-    # if not need.issubset(df.columns):
-    #     df = analysis.feat(df)
+#     # need = {
+#     #     "is_severe", "is_weekend", "is_night", "is_rush_hour",
+#     #     "has_precipitation", "has_bad_weather", "is_visibility_low",
+#     #     "is_freezing", "has_bump", "has_crossing", "road_type", "wind_speed_bin",
+#     # }
+#     # if not need.issubset(df.columns):
+#     #     df = analysis.feat(df)
 
-    print_menu(menu_filepath, is_parent_menu=True)
-    choice = checked_input("\nChoose KPI (1-7): ", df, parent_menu=parent_menu).strip()
+#     print_menu(menu_filepath, is_parent_menu=True)
+#     choice = checked_input("\nChoose KPI (1-7): ", df, parent_menu=parent_menu).strip()
 
-    metric_map = {
-        "2": "accidents",
-        "3": "severe_share",
-        "4": "avg_severity",
-        "5": "weekend_share",
-        "6": "precip_share",
-        "7": "bad_weather_share",
-    }
+#     metric_map = {
+#         "2": "accidents",
+#         "3": "severe_share",
+#         "4": "avg_severity",
+#         "5": "weekend_share",
+#         "6": "precip_share",
+#         "7": "bad_weather_share",
+#     }
 
-    df_filtered = choose_period_df(df)
-    if df_filtered.empty:
-        print("\n[Notice] No data left after filtering. Showing all years.")
-        df_filtered = df
+#     df_filtered = choose_period_df(df)
+#     if df_filtered.empty:
+#         print("\n[Notice] No data left after filtering. Showing all years.")
+#         df_filtered = df
 
-    if choice == "1":
-        df_stack = analysis.kpi_components_by_year(df_filtered, scale=10000)
-        pretty = df_stack.rename(columns={
-            "severe": "Severe",
-            "weekend_only": "Weekend only",
-            "precip_only": "Precip only",
-            "bad_only": "Bad weather only",
-            "other": "Other",
-        })
+#     if choice == "1":
+#         df_stack = analysis.kpi_components_by_year(df_filtered, scale=10000)
+#         pretty = df_stack.rename(columns={
+#             "severe": "Severe",
+#             "weekend_only": "Weekend only",
+#             "precip_only": "Precip only",
+#             "bad_only": "Bad weather only",
+#             "other": "Other",
+#         })
 
-        visualization.stacked_components_bar(
-            pretty,
-            x_col="year",
-            stack_cols=("Severe", "Weekend only", "Precip only", "Bad weather only", "Other"),
-            title="Accidents by year (stacked components, per 10k)",
-            ylabel="Accidents (per 10k)"
-        )
+#         visualization.stacked_components_bar(
+#             pretty,
+#             x_col="year",
+#             stack_cols=("Severe", "Weekend only", "Precip only", "Bad weather only", "Other"),
+#             title="Accidents by year (stacked components, per 10k)",
+#             ylabel="Accidents (per 10k)"
+#         )
 
-        print(pretty[["year", "accidents"]].rename(columns={"accidents": "Accidents (per 10k)"}))
+#         print(pretty[["year", "accidents"]].rename(columns={"accidents": "Accidents (per 10k)"}))
 
-        press_to_continue(main_menu,df)
-        return
+#         press_to_continue(main_menu,df)
+#         return
 
-    metric = metric_map.get(choice, "accidents")
-    df_kpi = analysis.kpi_by_year(df_filtered, metric)
-    print(df_kpi)
-    if len(df_kpi.columns) == 2:
-        ask_for_visualize(df_kpi, df, parent_menu)
+#     metric = metric_map.get(choice, "accidents")
+#     df_kpi = analysis.kpi_by_year(df_filtered, metric)
+#     print(df_kpi)
+#     if len(df_kpi.columns) == 2:
+#         ask_for_visualize(df_kpi, df, parent_menu)
 
-    press_to_continue(main_menu,df)
+#     press_to_continue(main_menu,df)
 
 
 def start_from_input(s: str):
@@ -320,64 +326,25 @@ def end_exclusive_from_input(s: str):
         return None
 
 
-def choose_period_df(df: pd.DataFrame, parent_menu=kpi_by_year_menu) -> pd.DataFrame:
-    print("\nWhich period do you want to show?")
-    print("1. All years")
-    print("2. Specific year")
-    print("3. Specific date range")
-    choice = checked_input("\nYour choice (1-3): ", df, parent_menu=parent_menu).strip()
-
-    if choice == "1":
-        return df
-
-    if choice == "2":
-        y = checked_input("Enter year (2016-2023): ", df, parent_menu=parent_menu).strip()
-        if len(y) == 4 and y.isdigit():
-            year = int(y)
-            if "year" in df.columns:
-                return df[df["year"] == year]
-            years = pd.to_datetime(df["Start_Time"], errors="coerce").dt.year
-            return df[years == year]
-        print("Invalid year format. Showing all years.")
-        return df
-
-    if choice == "3":
-        for _ in range(2):
-            print("\nExamples of valid input: 2020  |  2020-05  |  2020-05-10")
-            s_from = checked_input("From date: ", df, parent_menu=parent_menu).strip()
-            s_to = checked_input("To date: ", df, parent_menu=parent_menu).strip()
-            dt_from = start_from_input(s_from)
-            dt_to_excl = end_exclusive_from_input(s_to)
-            if (dt_from is not None) and (dt_to_excl is not None) and (dt_from < dt_to_excl):
-                tmp = (df["Start_Time"] if pd.api.types.is_datetime64_any_dtype(df["Start_Time"])
-                       else pd.to_datetime(df["Start_Time"], errors="coerce"))
-                mask = (tmp >= dt_from) & (tmp < dt_to_excl)
-                return df[mask]
-            print("Could not parse the dates — please try again.")
-        print("Showing all years.")
-        return df
-
-    print("No such option. Showing all years.")
-    return df
-
-def choose_kpi() -> str:
-    print("\nCustom reports")
-    print("1. All metrics (stacked, per 10k)")
-    print("2. Accidents (count)")
-    print("3. Severe share (%)")
-    print("4. Avg Severity")
-    print("5. Weekend share (%)")
-    print("6. Precipitation share (%)")
-    print("7. Bad weather share (%)")
-    print("8. Accidents by month")
-    print("9. Night share (%)")
-    print("10. Rush hour share (%)")
-    print("11. Low visibility share (%)")
-    print("12. Freezing share (%)")
-    print("13. Bump share (%)")
-    print("14. Crossing share (%)")
-    print("15. DUI signal share (%)")
-    choice = checked_input("\nChoose KPI (1-15): ").strip()
+def choose_kpi(df, menu_filepath=KPI_BY_YEAR_MENU, parent_menu=main_menu) -> str:
+    # print("\nCustom reports")
+    # print("1. All metrics (stacked, per 10k)")
+    # print("2. Accidents (count)")
+    # print("3. Severe share (%)")
+    # print("4. Avg Severity")
+    # print("5. Weekend share (%)")
+    # print("6. Precipitation share (%)")
+    # print("7. Bad weather share (%)")
+    # print("8. Accidents by month")
+    # print("9. Night share (%)")
+    # print("10. Rush hour share (%)")
+    # print("11. Low visibility share (%)")
+    # print("12. Freezing share (%)")
+    # print("13. Bump share (%)")
+    # print("14. Crossing share (%)")
+    # print("15. DUI signal share (%)")
+    print_menu(menu_filepath)
+    choice = checked_input("\nChoose KPI (1-15): ", df=df, parent_menu=parent_menu).strip()
     return {
         "1": "__stacked__",
         "2": "accidents",
@@ -396,8 +363,8 @@ def choose_kpi() -> str:
         "15": "dui_share",
     }.get(choice, "accidents")
 
-def kpi_by_year_menu(df: pd.DataFrame) -> pd.DataFrame:
-    metric = choose_kpi()
+def kpi_by_year_menu(df: pd.DataFrame, menu_filepath=KPI_BY_YEAR_MENU, parent_menu=main_menu) -> pd.DataFrame:
+    metric = choose_kpi(df, menu_filepath=KPI_BY_YEAR_MENU, parent_menu=main_menu)
 
     d_period = choose_period_df(df)
     if d_period.empty:
@@ -475,7 +442,45 @@ def kpi_by_year_menu(df: pd.DataFrame) -> pd.DataFrame:
 
     return d
 
+def choose_period_df(df: pd.DataFrame, parent_menu=kpi_by_year_menu) -> pd.DataFrame:
+    print("\nWhich period do you want to show?")
+    print("1. All years")
+    print("2. Specific year")
+    print("3. Specific date range")
+    choice = checked_input("\nYour choice (1-3): ", df, parent_menu=parent_menu).strip()
 
+    if choice == "1":
+        return df
+
+    if choice == "2":
+        y = checked_input("Enter year (2016-2023): ", df, parent_menu=parent_menu).strip()
+        if len(y) == 4 and y.isdigit():
+            year = int(y)
+            if "year" in df.columns:
+                return df[df["year"] == year]
+            years = pd.to_datetime(df["Start_Time"], errors="coerce").dt.year
+            return df[years == year]
+        print("Invalid year format. Showing all years.")
+        return df
+
+    if choice == "3":
+        for _ in range(2):
+            print("\nExamples of valid input: 2020  |  2020-05  |  2020-05-10")
+            s_from = checked_input("From date: ", df, parent_menu=parent_menu).strip()
+            s_to = checked_input("To date: ", df, parent_menu=parent_menu).strip()
+            dt_from = start_from_input(s_from)
+            dt_to_excl = end_exclusive_from_input(s_to)
+            if (dt_from is not None) and (dt_to_excl is not None) and (dt_from < dt_to_excl):
+                tmp = (df["Start_Time"] if pd.api.types.is_datetime64_any_dtype(df["Start_Time"])
+                       else pd.to_datetime(df["Start_Time"], errors="coerce"))
+                mask = (tmp >= dt_from) & (tmp < dt_to_excl)
+                return df[mask]
+            print("Could not parse the dates — please try again.")
+        print("Showing all years.")
+        return df
+
+    print("No such option. Showing all years.")
+    return df
 
 
 def help():

@@ -4,6 +4,5 @@ Available options:
 2. Top accidents by city for certain year
 3. Count of accidents for a city, split by year
 4. Dangerous places in a city
-5. Heatmap
 
 Other options will be added later

@@ -11,6 +11,7 @@ CSV = ROOT_PATH + r'/data/raw/US_Accidents_March23.csv'
 
 
 PARENT_PATH = str(Path(ROOT_PATH).parent)
+README_PATH = PARENT_PATH + r'/Road-Sefety-US/README.md'
 
 EXTERNAL_RAW_DIR       = os.path.join(PARENT_PATH, "dataset")
 EXTERNAL_RAW_CSV       = os.path.join(EXTERNAL_RAW_DIR, "US_Accidents_March23.csv")
