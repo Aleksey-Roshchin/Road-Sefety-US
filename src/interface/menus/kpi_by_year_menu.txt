@@ -1,9 +1,17 @@
 Available options:
 
-1. All metrics (table)
+1. All metrics (stacked, per 10k)
 2. Accidents (count)
 3. Severe share (heavy accidents)
 4. Avg Severity
 5. Weekend share
 6. Precipitation share
 7. Bad weather share
+8. Accidents by month
+9. Night share
+10. Rush hour share
+11. Low visibility share
+12. Freezing share
+13. Bump share
+14. Crossing share
+15. DUI signal share

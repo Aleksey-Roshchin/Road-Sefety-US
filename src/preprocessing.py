@@ -18,15 +18,27 @@ def remove_outliers_basic(df, cols=None):
 
 
 def base_preprocess_datetime(
-    df: pd.DataFrame,
-    col: str = 'Start_Time',
-    apply_outliers: bool = False,
-    outlier_cols=None
-) -> pd.DataFrame:
-    df = parse_dates(df, col)
-    if apply_outliers:
-        df = remove_outliers_basic(df, cols=outlier_cols)
-    return df
+    df,
+    time_col: str = "Start_Time",
+    apply_outliers: bool = True,
+    outlier_cols=None,
+):
+
+    import pandas as pd
+    d = df.copy()
+    d.loc[:, time_col] = pd.to_datetime(d[time_col], errors="coerce")
+    d = d.dropna(subset=[time_col]).reset_index(drop=True)
+    d.loc[:, "year"] = d[time_col].dt.year
+    d.loc[:, "date"] = d[time_col].dt.date
+
+    if apply_outliers and outlier_cols:
+        for c in outlier_cols:
+            if c in d.columns:
+                x = pd.to_numeric(d[c], errors="coerce")
+                lo, hi = x.quantile(0.001), x.quantile(0.999)
+                d = d[(x >= lo) & (x <= hi) | x.isna()]
+
+    return d
 
 
 def remove_outliers_iqr_entire_df(df):

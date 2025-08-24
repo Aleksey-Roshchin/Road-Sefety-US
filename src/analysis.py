@@ -1,7 +1,9 @@
 import re
 import numpy as np
 import pandas as pd
-# from src.data_loader import load_orifinal_data_csv
+from typing import Dict
+import src.visualization as visualization
+import src.preprocessing as prepro
 import src.constants as consts
 import src.preprocessing as prepro
 import src.visualization as visualization
@@ -71,63 +73,107 @@ def count_by_cities(df: pd.DataFrame, num_rows=consts.NUM_ROWS, cities=None) -> 
     prepro.set_index_starting_from_one(df_processed)
     return df_processed
 
+# def count_by_cities(df: pd.DataFrame, num_rows=consts.NUM_ROWS, cities=None) -> pd.DataFrame:
+#     if cities is None:
+#         out = (df['City'].value_counts()
+#                .head(num_rows)
+#                .rename_axis('City')
+#                .reset_index(name='NumOfAccidents'))
+#         prepro.set_index_starting_from_one(out)
+#         return out
+#     tmp = df[df['City'].isin(cities)]
+#     out = (tmp.groupby('City', observed=True)['City']
+#            .size()
+#            .rename('NumOfAccidents')
+#            .reset_index()
+#            .sort_values('NumOfAccidents', ascending=False)
+#            .head(num_rows))
+#     prepro.set_index_starting_from_one(out)
+#     return out
+
 
 def feat(df: pd.DataFrame) -> pd.DataFrame:
     d = df.copy()
     d["Start_Time"] = pd.to_datetime(d["Start_Time"], errors="coerce")
     d["Severity"] = pd.to_numeric(d["Severity"], errors="coerce")
-    d = d.dropna(subset=["Start_Time","Severity"])
+    d = d.dropna(subset=["Start_Time", "Severity"]).reset_index(drop=True)
 
     d["hour"] = d["Start_Time"].dt.hour
     d["day_of_week"] = d["Start_Time"].dt.dayofweek
+    d["year"] = d["Start_Time"].dt.year
+    d["date"] = d["Start_Time"].dt.date
+
     d["is_night"] = ((d["hour"] >= 20) | (d["hour"] <= 5)).astype(int)
-    d["is_rush_hour"] = (d["hour"].between(7,9) | d["hour"].between(16,19)).astype(int)
+    d["is_rush_hour"] = (d["hour"].between(7, 9) | d["hour"].between(16, 19)).astype(int)
     d["is_weekend"] = (d["day_of_week"] >= 5).astype(int)
 
-    pcol = next((c for c in d.columns if "Precipitation" in c), None)
-    d["has_precipitation"] = (pd.to_numeric(d[pcol], errors="coerce").fillna(0) > 0).astype(int) if pcol else 0
+    w_txt = d.get("Weather_Condition")
+    w_txt = w_txt.astype("string").str.lower().fillna("") if w_txt is not None else pd.Series("", index=d.index)
 
-    bad_re = r"Rain|Snow|Fog|Thunder|Storm|Hail|Sleet|Blizzard"
+    num_prec = pd.to_numeric(d["Precipitation(in)"], errors="coerce") if "Precipitation(in)" in d.columns else None
+    has_prec_by_num = (num_prec.fillna(0) > 0) if num_prec is not None else pd.Series(False, index=d.index)
+    has_prec_by_text = w_txt.str.contains(r"rain|snow|sleet|hail|drizzle|storm|shower", regex=True)
+    d["has_precipitation"] = (has_prec_by_num | has_prec_by_text).astype(int)
 
-    if "Weather_Condition" in d.columns:
-        w = d["Weather_Condition"].astype("string").fillna("")
+    d["has_bad_weather"] = w_txt.str.contains(
+        r"rain|snow|fog|mist|thunder|storm|hail|sleet|blizzard|ice|freezing|squall|dust|smoke|haze",
+        regex=True
+    ).fillna(False).astype(int)
+
+    if "Visibility(mi)" in d.columns:
+        vis = pd.to_numeric(d["Visibility(mi)"], errors="coerce")
+        if vis.notna().any():
+            import numpy as np
+            thr_q5 = np.nanpercentile(vis, 5)
+            thr = max(thr_q5, 1.0)
+            low_num = vis <= thr
+            low_txt = w_txt.str.contains(r"fog|mist|smoke|haze|squall|dust", regex=True)
+            low = (low_num | low_txt)
+            if low.nunique(dropna=True) < 2:
+                low = (vis < 2) | low_txt
+            d["is_visibility_low"] = low.fillna(False).astype(int)
+        else:
+            d["is_visibility_low"] = 0
     else:
-        w = pd.Series("", index=d.index, dtype="string")
-
-    d["has_bad_weather"] = w.str.contains(bad_re, case=False, regex=True) \
-        .fillna(False).astype(int)
-
-    v = pd.to_numeric(d["Visibility(mi)"], errors="coerce") if "Visibility(mi)" in d.columns else pd.Series(np.nan, index=d.index)
-    d["is_visibility_low"] = (v < 2).astype(int)
-
-    tcol = next((c for c in d.columns if "Temp" in c), None)
-    d["is_freezing"] = (pd.to_numeric(d[tcol], errors="coerce") < 32).astype(int) if tcol else 0
-
-
+        d["is_visibility_low"] = w_txt.str.contains(r"fog|mist|smoke|haze|squall|dust", regex=True).astype(int)
+    if "Temperature(F)" in d.columns:
+        tnum = pd.to_numeric(d["Temperature(F)"], errors="coerce")
+        d["is_freezing"] = (tnum < 32).astype(int)
+    else:
+        d["is_freezing"] = w_txt.str.contains(r"freez|ice|frost", regex=True).astype(int)
     wcol = next((c for c in d.columns if "Wind_Speed" in c), None)
     if wcol:
-        d["wind_speed_bin"] = pd.cut(pd.to_numeric(d[wcol], errors="coerce"), [-.1, 7, 15, 25, np.inf], labels=["0","1","2","3"])
+        ws = pd.to_numeric(d[wcol], errors="coerce")
+        d["wind_speed_bin"] = pd.cut(ws, [-0.1, 7, 15, 25, np.inf], labels=["0", "1", "2", "3"])
     else:
         d["wind_speed_bin"] = pd.Categorical(["NA"] * len(d))
 
     txt = d["Street"].fillna(d.get("Description")).astype(str).str.lower()
     d["road_type"] = txt.map(lambda s:
-        "interstate" if re.search(r"\b(i-|interstate|fwy)\b", s) else
-        ("highway" if re.search(r"\b(hwy|highway|us-|sr-)\b", s) else "local")
-    )
+                             "interstate" if re.search(r"\b(i-|interstate|fwy)\b", s) else
+                             ("highway" if re.search(r"\b(hwy|highway|us-|sr-)\b", s) else "local")
+                             )
 
     d["is_severe"] = (d["Severity"] >= 3).astype(int)
-    if "Bump" in d.columns:
-        d["has_bump"] = d["Bump"].astype(str).str.lower().isin(["true", "1", "yes"]).astype(int)
-    else:
-        d["has_bump"] = 0
-    if "Crossing" in d.columns:
-        d["has_crossing"] = d["Crossing"].astype(str).str.lower().isin(["true", "1", "yes"]).astype(int)
-    else:
-        d["has_crossing"] = 0
 
+    def _to01(s):
+        return s.astype(str).str.lower().isin(["true", "1", "yes", "y", "t"]).astype(int)
+
+    d["has_bump"] = _to01(d["Bump"]) if "Bump" in d.columns else 0
+    d["has_crossing"] = _to01(d["Crossing"]) if "Crossing" in d.columns else 0
+    d["has_dui_signal"] = _to01(d["Traffic_Signal"]) if "Traffic_Signal" in d.columns else 0
     d = object_columns_to_category(d, columns=["City", "Weather_Condition", "road_type"])
     return d
+
+
+def ensure_features(df: pd.DataFrame) -> pd.DataFrame:
+    need = {
+        "is_severe", "is_weekend", "is_night", "is_rush_hour",
+        "has_precipitation", "has_bad_weather", "is_visibility_low",
+        "is_freezing", "has_bump", "has_crossing", "has_dui_signal",
+        "wind_speed_bin", "road_type",
+    }
+    return df if need.issubset(df.columns) else feat(df)
 
 
 def corr_show(df, feature_col):
@@ -172,6 +218,20 @@ def kpi_by_year(df: pd.DataFrame, metric: str = 'accidents') -> pd.DataFrame:
         out = g.groupby('year')['has_precipitation'].mean().reset_index(name='precip_share')
     elif metric == 'bad_weather_share':
         out = g.groupby('year')['has_bad_weather'].mean().reset_index(name='bad_weather_share')
+    elif metric == 'night_share':
+        out = g.groupby('year')['is_night'].mean().reset_index(name='night_share')
+    elif metric == 'rush_hour_share':
+        out = g.groupby('year')['is_rush_hour'].mean().reset_index(name='rush_hour_share')
+    elif metric == 'visibility_low_share':
+        out = g.groupby('year')['is_visibility_low'].mean().reset_index(name='visibility_low_share')
+    elif metric == 'freezing_share':
+        out = g.groupby('year')['is_freezing'].mean().reset_index(name='freezing_share')
+    elif metric == 'bump_share':
+        out = g.groupby('year')['has_bump'].mean().reset_index(name='bump_share')
+    elif metric == 'crossing_share':
+        out = g.groupby('year')['has_crossing'].mean().reset_index(name='crossing_share')
+    elif metric == 'dui_share':
+        out = g.groupby('year')['has_dui_signal'].mean().reset_index(name='dui_share')
     else:
         out = g.groupby('year').size().reset_index(name='accidents')
 
@@ -184,9 +244,7 @@ def kpi_by_year(df: pd.DataFrame, metric: str = 'accidents') -> pd.DataFrame:
         out[value_col] = (out[value_col] * 100).round(1)  # percent
     elif value_col == 'avg_severity':
         out[value_col] = out[value_col].round(2)
-
     return out.sort_values('year')
-
 
 def kpi_by_year_all(df: pd.DataFrame) -> pd.DataFrame:
 
@@ -202,12 +260,23 @@ def kpi_by_year_all(df: pd.DataFrame) -> pd.DataFrame:
              weekend_share=('is_weekend', 'mean'),
              precip_share=('has_precipitation', 'mean'),
              bad_weather_share=('has_bad_weather', 'mean'),
+             night_share=('is_night', 'mean'),
+             rush_hour_share=('is_rush_hour', 'mean'),
+             visibility_low_share=('is_visibility_low', 'mean'),
+             freezing_share=('is_freezing', 'mean'),
+             bump_share=('has_bump', 'mean'),
+             crossing_share=('has_crossing', 'mean'),
+             dui_share=('has_dui_signal', 'mean'),
          )
          .reset_index()
     )
 
     out['year'] = out['year'].astype(int)
-    for c in ['severe_share', 'weekend_share', 'precip_share', 'bad_weather_share']:
+    for c in [
+        'severe_share', 'weekend_share', 'precip_share', 'bad_weather_share',
+        'night_share', 'rush_hour_share', 'visibility_low_share',
+        'freezing_share', 'bump_share', 'crossing_share', 'dui_share',
+    ]:
         out[c] = (out[c] * 100).round(1)
     out['avg_severity'] = out['avg_severity'].round(2)
     return out.sort_values('year')
@@ -218,29 +287,62 @@ def kpi_components_by_year(df: pd.DataFrame, scale: int = 10000) -> pd.DataFrame
     severe = g.get("is_severe", pd.Series(0, index=g.index)).astype(bool)
     weekend = g.get("is_weekend", pd.Series(0, index=g.index)).astype(bool)
     precip = g.get("has_precipitation", pd.Series(0, index=g.index)).astype(bool)
-    bad    = g.get("has_bad_weather", pd.Series(0, index=g.index)).astype(bool)
-    bucket_severe = severe
-    bucket_weekend = (~bucket_severe) & weekend
-    bucket_precip = (~bucket_severe) & (~bucket_weekend) & precip
-    bucket_bad    = (~bucket_severe) & (~bucket_weekend) & (~bucket_precip) & bad
-    bucket_other  = ~(bucket_severe | bucket_weekend | bucket_precip | bucket_bad)
-    parts = pd.DataFrame({
-        "year": g["year"],
-        "severe": bucket_severe.astype(int),
-        "weekend_only": bucket_weekend.astype(int),
-        "precip_only": bucket_precip.astype(int),
-        "bad_only": bucket_bad.astype(int),
-        "other": bucket_other.astype(int),
-    })
+    bad = g.get("has_bad_weather", pd.Series(0, index=g.index)).astype(bool)
+    night = g.get("is_night", pd.Series(0, index=g.index)).astype(bool)
+    rush = g.get("is_rush_hour", pd.Series(0, index=g.index)).astype(bool)
+    vis_low = g.get("is_visibility_low", pd.Series(0, index=g.index)).astype(bool)
+    freezing = g.get("is_freezing", pd.Series(0, index=g.index)).astype(bool)
+    bump = g.get("has_bump", pd.Series(0, index=g.index)).astype(bool)
+    crossing = g.get("has_crossing", pd.Series(0, index=g.index)).astype(bool)
+    dui = g.get("has_dui_signal", pd.Series(0, index=g.index)).astype(bool)
+
+    conditions = [
+        ("severe", severe),
+        ("weekend_only", weekend),
+        ("precip_only", precip),
+        ("bad_only", bad),
+        ("night_only", night),
+        ("rush_hour_only", rush),
+        ("visibility_low_only", vis_low),
+        ("freezing_only", freezing),
+        ("bump_only", bump),
+        ("crossing_only", crossing),
+        ("dui_only", dui),
+    ]
+
+    remaining = pd.Series(True, index=g.index)
+    buckets: Dict[str, pd.Series] = {}
+    for name, cond in conditions:
+        bucket = cond & remaining
+        buckets[name] = bucket.astype(int)
+        remaining &= ~bucket
+    buckets["other"] = remaining.astype(int)
+
+    parts = pd.DataFrame({"year": g["year"], **buckets})
     agg = parts.groupby("year", as_index=False).sum()
     totals = g.groupby("year", as_index=False).size().rename(columns={"size": "accidents"})
     out = agg.merge(totals, on="year", how="left")
-    for c in ["severe", "weekend_only", "precip_only", "bad_only", "other", "accidents"]:
+    for c in [
+        "severe", "weekend_only", "precip_only", "bad_only", "night_only",
+        "rush_hour_only", "visibility_low_only", "freezing_only",
+        "bump_only", "crossing_only", "dui_only", "other", "accidents",
+    ]:
         out[c] = (out[c] / float(scale)).round(2)
     return out.sort_values("year")
 
+
+def accidents_by_month(df: pd.DataFrame) -> pd.DataFrame:
+    months = pd.to_datetime(df["Start_Time"], errors="coerce").dt.month
+    out = (df.assign(month=months)
+             .groupby("month")
+             .size()
+             .reset_index(name="accidents")
+             .dropna()
+             .sort_values("month"))
+    out["month"] = out["month"].astype(int)
+    return out
+
 def count_by_cities_years(df: pd.DataFrame, num_rows=consts.NUM_ROWS, cities=None, year=2023) -> pd.DataFrame:
-    # берём год из df['year'] если есть, иначе парсим
     if "year" in df.columns:
         y = df["year"]
     else:
@@ -293,4 +395,32 @@ def city_dangerous_streets(df: pd.DataFrame, city: str,  year: int, num_rows=con
     prepro.set_index_starting_from_one(df_processed)
 
     return df_processed
-    
+
+def пeekend(df: pd.DataFrame, alpha: float = 0.05) -> None:
+    import pandas as pd
+    try:
+        from scipy.stats import chi2_contingency
+    except Exception:
+        print("SciPy is required. Install once: pip install scipy")
+        return
+
+    d = df.copy()
+    t = pd.to_datetime(d["Start_Time"], errors="coerce")
+    d = d.loc[t.notna()].copy()
+    d["is_weekend"] = t.dt.dayofweek.ge(5).astype(int)
+    d["is_severe"] = pd.to_numeric(d["Severity"], errors="coerce").ge(3).astype(int)
+
+    ct = pd.crosstab(d["is_severe"], d["is_weekend"])
+    if ct.shape[0] < 2 or ct.shape[1] < 2:
+        print("Not enough variation for chi-square (need at least a 2x2 table).")
+        return
+
+    chi2, p, dof, expected = chi2_contingency(ct.values, correction=True)  # Yates for 2x2
+    exp_df = pd.DataFrame(expected, index=ct.index, columns=ct.columns)
+
+    print("\n=== Chi-square: is_severe × is_weekend ===")
+    print("Observed counts:\n", ct)
+    print("\nExpected counts (rounded):\n", exp_df.round(2))
+    print(f"\nchi2 = {chi2:.3f}, dof = {dof}, p-value = {p:.6f}")
+    decision = "REJECT H0 (dependence)" if p <= alpha else "Fail to reject H0 (no evidence)"
+    print(f"Decision at alpha={alpha}: {decision}")
