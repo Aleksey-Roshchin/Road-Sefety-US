@@ -14,6 +14,11 @@ MAIN_MENU = MENUS_PATH + r'/main_menu.txt'
 MAIN_MENU_LOGO = MAIN_MENU.rstrip('.txt') + '_logo.txt'
 PRESET_REPORTS_MENU = MENUS_PATH + r'/preset_reports_menu.txt'
 PRESET_REPORTS_LOGO = PRESET_REPORTS_MENU.rstrip('.txt') + '_logo.txt'
+CUSTOM_REPORTS_MENU = MENUS_PATH + r'/custom_reports_menu.txt'
+CUSTOM_REPORTS_LOGO = CUSTOM_REPORTS_MENU.rstrip('.txt') + '_logo.txt'
+KPI_BY_YEAR_MENU = MENUS_PATH + r'/kpi_by_year_menu_logo.txt'
+KPI_BY_YEAR_LOGO = KPI_BY_YEAR_MENU.rstrip('.txt') + '_logo.txt'
+
 
 MENU_HIERACHY = {
     PRESET_REPORTS_MENU: MAIN_MENU,
