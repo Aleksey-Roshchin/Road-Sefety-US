@@ -37,6 +37,7 @@ EXIT_COMMANDS = (
     "terminate program",
     "that's it"
 )
+BACK_COMMANDS = ('back', 'return', 'previous')
 
 USER_INPUT_FORM = "\n>> "
 
